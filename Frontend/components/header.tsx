@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import GoogleLoginBtn from './GoogleLoginBtn'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -47,12 +48,7 @@ export default function Header() {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-            >
-              Login
-            </Button>
+            <GoogleLoginBtn />
             <Link href="/raise-complaint">
               <Button className="bg-accent hover:bg-yellow-500 text-accent-foreground">
                 Raise Complaint
@@ -84,12 +80,7 @@ export default function Header() {
                 </Link>
               ))}
               <div className="flex gap-2 px-4 pt-4">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                >
-                  Login
-                </Button>
+                <GoogleLoginBtn />
                 <Link href="/raise-complaint" className="flex-1">
                   <Button className="w-full bg-accent hover:bg-yellow-500 text-accent-foreground">
                     Raise Complaint

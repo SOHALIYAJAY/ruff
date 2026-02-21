@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import GoogleProvider from '@/components/GoogleProvider'
 
 import './globals.css'
 
@@ -24,7 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <GoogleProvider>
+          {children}
+        </GoogleProvider>
+      </body>
     </html>
   )
 }
