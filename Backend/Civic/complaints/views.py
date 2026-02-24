@@ -7,11 +7,9 @@ from rest_framework.response import Response
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.generics import ListAPIView
 from rest_framework import generics, status
-from django.views.decorators.csrf import csrf_exempt
 
 
 @api_view(['POST'])
-@csrf_exempt
 def createcomplaint(request):
     print("Received data:", request.data)  # Debug log
     serializer = ComplaintSerializer(data=request.data)
@@ -30,4 +28,3 @@ def createcomplaint(request):
         'success': False,
         'errors': serializer.errors
     }, status=status.HTTP_400_BAD_REQUEST)
-  

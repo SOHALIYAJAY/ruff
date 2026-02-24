@@ -1,9 +1,14 @@
 'use client'
 
-import { AlertCircle, CheckCircle, Clock, Zap, TrendingUp } from 'lucide-react'
+import { AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface StatCard {
+  total_complaints?: number
+  Active_complaints?: number
+  Resolved_complaints?: number
+  SLA_compliance?: number
+  Pending?: number
   label: string
   value: number
   icon: React.ReactNode
@@ -38,43 +43,48 @@ function AnimatedCounter({ targetValue }: { targetValue: number }) {
 }
 
 export default function StatisticsCards() {
+  const [info, setInfo] = useState<any>({})
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+  
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/complaintsinfo/`)
+      .then((res) => res.json())
+      .then((data) => { 
+        setInfo(data)
+      })
+      .catch((error) => {
+        console.error("Error fetching complaints:", error)
+      })
+  }, [])
+
   const stats: StatCard[] = [
     {
       label: 'Total Complaints',
-      value: 24,
+      value: info.total_comp || 0,
       icon: <AlertCircle className="w-6 h-6" />,
       bgColor: 'bg-blue-500/10',
       textColor: 'text-blue-600',
       borderColor: 'border-blue-500/20',
     },
     {
-      label: 'Active Complaints',
-      value: 6,
+      label: 'In Progress',
+      value: info.inprogress_comp || 0,
       icon: <TrendingUp className="w-6 h-6" />,
       bgColor: 'bg-purple-500/10',
       textColor: 'text-purple-600',
       borderColor: 'border-purple-500/20',
     },
     {
-      label: 'Resolved Complaints',
-      value: 18,
+      label: 'Resolved',
+      value: info.resolved_comp || 0,
       icon: <CheckCircle className="w-6 h-6" />,
       bgColor: 'bg-green-500/10',
       textColor: 'text-green-600',
       borderColor: 'border-green-500/20',
     },
     {
-      label: 'SLA Compliance',
-      value: 94,
-      icon: <Zap className="w-6 h-6" />,
-      bgColor: 'bg-orange-500/10',
-      textColor: 'text-orange-600',
-      borderColor: 'border-orange-500/20',
-      suffix: '%',
-    },
-    {
       label: 'Pending',
-      value: 4,
+      value: info.pending_comp || 0,
       icon: <Clock className="w-6 h-6" />,
       bgColor: 'bg-red-500/10',
       textColor: 'text-red-600',
@@ -83,7 +93,7 @@ export default function StatisticsCards() {
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {stats.map((stat, index) => (
         <div
           key={index}

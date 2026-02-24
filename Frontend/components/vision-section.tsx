@@ -1,5 +1,6 @@
 import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link  from 'next/link'
 
 export default function VisionSection() {
   return (
@@ -29,10 +30,11 @@ export default function VisionSection() {
                 </div>
               ))}
             </div>
-
+             <Link href='/about'>
             <Button className="bg-primary hover:bg-secondary text-primary-foreground font-semibold py-6 px-8 text-lg">
               Learn More About Our Mission
             </Button>
+            </Link>
           </div>
 
           {/* Right Content - Government Schemes */}

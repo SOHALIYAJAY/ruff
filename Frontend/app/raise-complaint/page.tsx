@@ -8,6 +8,11 @@ export const metadata = {
   description: 'Report civic issues in your area for quick resolution through our smart governance portal',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export default function RaiseComplaintPage() {
   return (
     <main className="min-h-screen bg-background">

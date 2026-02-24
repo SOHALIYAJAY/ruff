@@ -1,10 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChevronRight, AlertCircle, Clock, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
-interface Complaint {
+interface Complaints{
   id: string
   title: string
   category: string
@@ -14,48 +15,20 @@ interface Complaint {
 }
 
 export default function RecentComplaints() {
-  const complaints: Complaint[] = [
-    {
-      id: 'CMP-2024-001',
-      title: 'Pothole on Main Street',
-      category: 'Roads',
-      status: 'in-progress',
-      dateSubmitted: '2024-02-10',
-      slaRemaining: '2 days',
-    },
-    {
-      id: 'CMP-2024-002',
-      title: 'Water Leakage at Park',
-      category: 'Water Supply',
-      status: 'pending',
-      dateSubmitted: '2024-02-12',
-      slaRemaining: '5 days',
-    },
-    {
-      id: 'CMP-2024-003',
-      title: 'Street Light Not Working',
-      category: 'Lighting',
-      status: 'open',
-      dateSubmitted: '2024-02-13',
-      slaRemaining: '1 day',
-    },
-    {
-      id: 'CMP-2024-004',
-      title: 'Garbage Overflow',
-      category: 'Sanitation',
-      status: 'resolved',
-      dateSubmitted: '2024-02-08',
-      slaRemaining: 'Completed',
-    },
-    {
-      id: 'CMP-2024-005',
-      title: 'Damaged Road Markings',
-      category: 'Roads',
-      status: 'in-progress',
-      dateSubmitted: '2024-02-11',
-      slaRemaining: '3 days',
-    },
-  ]
+  const [complaint, setComplaint] = useState<any[]>([])
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+  
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/getcomplaintlimit/`)
+      .then((res) => res.json())
+      .then((data) => { 
+        setComplaint(data)
+      })
+      .catch((error) => {
+        console.error("Error fetching complaints:", error)
+      })
+  }, [])
+  
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
@@ -92,13 +65,13 @@ export default function RecentComplaints() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {complaints.map((complaint, index) => (
+              {complaint.map((comp, index) => (
                 <tr key={index} className="hover:bg-primary/5 transition-colors">
-                  <td className="px-6 py-4 text-sm font-semibold text-primary">{complaint.id}</td>
-                  <td className="px-6 py-4 text-sm text-foreground">{complaint.title}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{complaint.category}</td>
-                  <td className="px-6 py-4">{getStatusBadge(complaint.status)}</td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">{complaint.slaRemaining}</td>
+                  <td className="px-6 py-4 text-sm font-semibold text-primary">{comp.id}</td>
+                  <td className="px-6 py-4 text-sm text-foreground">{comp.title}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{comp.category}</td>
+                  <td className="px-6 py-4">{getStatusBadge(comp.status)}</td>
+                  <td className="px-6 py-4 text-sm text-muted-foreground">{comp.slaRemaining}</td>
                   <td className="px-6 py-4">
                     <button className="text-primary hover:text-secondary transition-colors">
                       <ChevronRight className="w-4 h-4" />

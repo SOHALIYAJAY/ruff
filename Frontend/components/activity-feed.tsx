@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Clock, MapPin, User } from 'lucide-react'
+import Link from "next/link"
 
 interface Complaint {
   id: string
@@ -32,7 +33,7 @@ export default function ActivityFeed() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 useEffect(() => {
-  fetch(`${API_BASE_URL}/api/getcomplaint/`)
+  fetch(`${API_BASE_URL}/api/getcomplaintlimit/`)
     .then((res) => res.json())
     .then((data) => { 
       setComplaints(data)
@@ -66,7 +67,7 @@ useEffect(() => {
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-2xl">{statusConfig[complaint.status]?.icon || '⚪'}</span>
+                      <span className="text-2xl">{statusConfig[complaint.status].icon}</span>
                       <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
                         {complaint.title}
                       </h3>
@@ -75,11 +76,11 @@ useEffect(() => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge className={`${statusConfig[complaint.status]?.color || 'bg-gray-50 text-gray-700 border-gray-200'} border`}>
-                      {statusConfig[complaint.status]?.label || complaint.status}
+                    <Badge className={`${statusConfig[complaint.status].color} border`}>
+                      {statusConfig[complaint.status].label}
                     </Badge>
-                    <Badge className={priorityConfig[complaint.priority_level]?.color || 'bg-gray-100 text-gray-800'}>
-                      {priorityConfig[complaint.priority_level]?.label || complaint.priority_level}
+                    <Badge className={priorityConfig[complaint.priority_level].color}>
+                      {priorityConfig[complaint.priority_level].label}
                     </Badge>
                   </div>
                 </div>
@@ -92,7 +93,7 @@ useEffect(() => {
                   
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <User className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="font-medium">{complaint.Category}</span>
+                    <span className="font-small">{ complaint.Category }</span>
                   </div>
                   
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -112,9 +113,11 @@ useEffect(() => {
         </div>
 
         <div className="mt-8 text-center">
-          <button className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
+          <Link href='/my-complaints'>
+          <button className="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-secondary transition-colors"  >
             View All Complaints
           </button>
+                   </Link>
         </div>
       </div>
     </section>

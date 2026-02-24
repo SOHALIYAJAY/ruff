@@ -3,52 +3,71 @@
 import { useEffect, useState } from 'react'
 
 interface StatCard {
+  total_complaints:number
+  Resolved_complaints:number
+  Pending_complaints:number
+  SLA_complaince:number
+  Active_department:number
+  // inprogress_complaints:number
   label: string
-  value: string
+  value: number
   icon: string
   color: string
 }
 
-const stats: StatCard[] = [
-  {
-    label: 'Total Complaints',
-    value: '45,892',
-    icon: '📝',
-    color: 'from-blue-500 to-blue-600',
-  },
-  {
-    label: 'Resolved',
-    value: '43,210',
-    icon: '✅',
-    color: 'from-green-500 to-green-600',
-  },
-  {
-    label: 'Pending',
-    value: '2,682',
-    icon: '⏳',
-    color: 'from-amber-500 to-amber-600',
-  },
-  {
-    label: 'SLA Compliance',
-    value: '94.2%',
-    icon: '📊',
-    color: 'from-purple-500 to-purple-600',
-  },
-  {
-    label: 'Active Departments',
-    value: '28',
-    icon: '🏢',
-    color: 'from-indigo-500 to-indigo-600',
-  },
-]
-
 export default function StatisticsSection() {
   const [isVisible, setIsVisible] = useState(false)
+   const [compinfo, setCompinfo] = useState<any>({})
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+  
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/getcompinfo/`)
+      .then((res) => res.json())
+      .then((data) => { 
+        setCompinfo(data)
+      })
+      .catch((error) => {
+        console.error("Error fetching complaints:", error)
+      })
+  }, [])
 
+  const stats: StatCard[] = [
+    {
+      label: 'Total Complaints',
+      value: compinfo.total_complaints  || 0,
+      icon: '📝',
+      color: 'from-blue-500 to-blue-600',
+    },
+    {
+      label: 'Resolved',
+      value: compinfo.Resolved_complaints || 0,
+      icon: '✅',
+      color: 'from-green-500 to-green-600',
+    },
+    {
+      label: 'Pending',
+      value: compinfo.Pending_complaints || 0,
+      icon: '⏳',
+      color: 'from-amber-500 to-amber-600',
+    },
+    {
+      label: 'SLA Compliance',
+      value: compinfo.SLA_complaince ? parseFloat(compinfo.SLA_complaince.toFixed(2)) : 0,
+      icon: '📊',
+      color: 'from-purple-500 to-purple-600',
+    },
+    {
+      label: 'Active Departments',
+      value: compinfo.Active_department || 0,
+      icon: '🏢',
+      color: 'from-indigo-500 to-indigo-600',
+    },
+  ]
+  
   useEffect(() => {
     setIsVisible(true)
   }, [])
-
+  
   return (
     <section className="py-16 sm:py-24 bg-muted/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

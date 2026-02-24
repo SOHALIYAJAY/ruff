@@ -38,7 +38,7 @@ export default function DashboardSidebar() {
     {
       label: 'Notifications',
       icon: <Bell className="w-5 h-5" />,
-      href: '#',
+      href: '/notifications',
       badge: 2,
     },
     {
@@ -107,13 +107,12 @@ export default function DashboardSidebar() {
               </Link>
             ))}
           </nav>
-
-          {/* Logout Button */}
           <div className="border-t border-primary-foreground/20 pt-4">
+            <Link href='/logout'>
             <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-primary-foreground/70 hover:bg-red-500/20 hover:text-red-400 transition-all duration-300 font-medium">
-              <LogOut className="w-5 h-5" />
-              <span>Logout</span>
+             Logout
             </button>
+            </Link>
           </div>
         </div>
       </aside>

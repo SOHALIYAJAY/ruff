@@ -8,18 +8,31 @@ import { MapPin, Upload, X, AlertCircle, Play } from 'lucide-react'
 
 const ComplaintMap = dynamic(() => import('./complaint-map'), { ssr: false })
 
+// ↩️ REVERTED TO ORIGINAL
 const categories = [
-  'Roads & Infrastructure',
-  'Water Supply',
-  'Sanitation',
-  'Street Lighting',
-  'Drainage',
-  'Illegal Construction',
-  'Noise Pollution',
-  'Other',
+  { value: 'ROADS', label: 'Roads & Infrastructure' },
+  { value: 'TRAFFIC', label: 'Traffic & Road Safety' },
+  { value: 'WATER', label: 'Water Supply' },
+  { value: 'SEWERAGE', label: 'Sewerage & Drainage' },
+  { value: 'SANITATION', label: 'Sanitation & Garbage' },
+  { value: 'LIGHTING', label: 'Street Lighting' },
+  { value: 'PARKS', label: 'Parks & Public Spaces' },
+  { value: 'ANIMALS', label: 'Stray Animals' },
+  { value: 'ILLEGAL_CONSTRUCTION', label: 'Illegal Construction' },
+  { value: 'ENCROACHMENT', label: 'Encroachment' },
+  { value: 'PROPERTY_DAMAGE', label: 'Public Property Damage' },
+  { value: 'ELECTRICITY', label: 'Electricity & Power Issues' },
+  { value: 'OTHER', label: 'Other' },
 ]
 
-const districts = ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar', 'Amreli']
+const districts = [
+  'Ahmedabad', 'Amreli', 'Anand', 'Aravalli', 'Banaskantha', 'Bharuch',
+  'Bhavnagar', 'Botad', 'Chhota Udaipur', 'Dahod', 'Dang', 'Devbhoomi Dwarka',
+  'Gandhinagar', 'Gir Somnath', 'Jamnagar', 'Junagadh', 'Kheda', 'Kutch',
+  'Mahisagar', 'Mehsana', 'Morbi', 'Narmada', 'Navsari', 'Panchmahal',
+  'Patan', 'Porbandar', 'Rajkot', 'Sabarkantha', 'Surat', 'Surendranagar',
+  'Tapi', 'Vadodara', 'Valsad'
+]
 
 export default function RaiseComplaintForm() {
   const [formData, setFormData] = useState({
@@ -30,13 +43,13 @@ export default function RaiseComplaintForm() {
     location_District: '',
     location_taluk: '',
     ward: '',
-    priority_level: 'medium',
+    priority_level: 'medium', // ↩️ REVERTED TO ORIGINAL
     latitude: 0,
     longitude: 0,
   })
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [filePreviews, setFilePreviews] = useState<{ url: string; type: 'image' | 'video'; name: string }[]>([])
+  const [filePreviews,  setFilePreviews] = useState<{ url: string; type: 'image' | 'video'; name: string }[]>([])
   const [dragActive, setDragActive] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [fileError, setFileError] = useState('')
@@ -167,8 +180,8 @@ export default function RaiseComplaintForm() {
         location_address: formData.location_address,
         location_District: formData.location_District,
         location_taluk: formData.location_taluk,
-        priority_level: formData.priority_level.charAt(0).toUpperCase() + formData.priority_level.slice(1), // Capitalize: 'medium' -> 'Medium'
-        status: 'Pending' // Default status
+        priority_level: formData.priority_level.charAt(0).toUpperCase() + formData.priority_level.slice(1), // ↩️ REVERTED TO ORIGINAL
+        status: 'Pending'
       }
 
       console.log('Submitting data:', submitData)
@@ -181,12 +194,26 @@ export default function RaiseComplaintForm() {
         body: JSON.stringify(submitData) 
       })
 
-      const data = await response.json()
+      let data = {}
+      try {
+        const text = await response.text()
+        if (text) {
+          data = JSON.parse(text)
+        }
+      } catch (jsonError) {
+        console.error('Failed to parse response:', jsonError)
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`)
+        }
+      }
+
       console.log('Server response:', data)
 
       if (!response.ok) {
-        console.error('Server error:', data)
-        throw new Error(data.errors ? JSON.stringify(data.errors) : `HTTP error! status: ${response.status}`)
+        const errorMsg = data.errors 
+          ? Object.entries(data.errors).map(([key, val]) => `${key}: ${val}`).join(', ')
+          : data.message || `Server error: ${response.status} ${response.statusText}`
+        throw new Error(errorMsg)
       }
 
       console.log("Complaint submitted successfully:", data)
@@ -202,7 +229,7 @@ export default function RaiseComplaintForm() {
         location_District: '',
         location_taluk: '',
         ward: '',
-        priority_level: 'medium',
+        priority_level: 'medium', // ↩️ REVERTED TO ORIGINAL
         latitude: 0,
         longitude: 0,
       })
@@ -210,7 +237,8 @@ export default function RaiseComplaintForm() {
       setFilePreviews([])
     } catch (error) {
       console.error('Error submitting complaint:', error)
-      alert(`Error submitting complaint: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Error submitting complaint: ${errorMessage}\n\nPlease check:\n1. Django server is running on http://127.0.0.1:8000\n2. All required fields are filled\n3. Check browser console for details`)
     }
   }
 
@@ -267,7 +295,7 @@ export default function RaiseComplaintForm() {
                 >
                   <option value="">Select a category</option>
                   {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
                 </select>
               </div>
@@ -437,6 +465,7 @@ export default function RaiseComplaintForm() {
                 <label className="block text-sm font-semibold text-foreground mb-4">
                   Priority Level <span className="text-red-500">*</span>
                 </label>
+                {/* ↩️ REVERTED TO ORIGINAL */}
                 <div className="flex gap-4">
                   {['low', 'medium', 'high'].map(level => (
                     <label key={level} className="flex items-center gap-2 cursor-pointer">
@@ -477,7 +506,7 @@ export default function RaiseComplaintForm() {
                       location_District: '',
                       location_taluk: '',
                       ward: '',
-                      priority_level: 'medium',
+                      priority_level: 'medium', // ↩️ REVERTED TO ORIGINAL
                       latitude: 0,
                       longitude: 0,
                     })

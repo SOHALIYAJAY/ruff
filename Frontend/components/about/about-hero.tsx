@@ -2,22 +2,23 @@
 
 import { ArrowRight } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 export default function AboutHero() {
   return (
     <section className="relative w-full h-screen overflow-hidden">
-      {/* Background Image */}
-      <Image
-        src="/about-hero-bg.jpg"
-        alt="About Us - Gujarat Civic Governance"
-        fill
-        className="object-cover"
-        priority
-      />
+      {/* Background Image - Government Building */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1555854877-bab0e564b8d5?q=80&w=2069&auto=format&fit=crop')`,
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 via-indigo-800/30 to-purple-900/30"></div>
+      </div>
       
       {/* Dark Overlay */}
-      <div className="absolute inset-0 bg-black/50"></div>
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/60"></div>
 
       {/* Animated background elements overlay */}
       <div className="absolute inset-0">

@@ -1,18 +1,22 @@
 from django.db import models
-from django.contrib.auth.models import User 
+# from django.contrib.auth.models import User 
 from django.utils import timezone
-
 class Complaint(models.Model):
-    CHOICE_CATEGORY=(
-        ('Roads & Infrastructure','Roads & Infrastructure'),
-        ('Water Supply','Water Supply'),
-        ('Sanitation','Sanitation'),
-        ('Street Lighting','Street Lighting'),
-        ('Drainage','Drainage'),
-        ('Illegal Construction','Illegal Construction'),
-        ('Noise Pollution','Noise Pollution'),
-        ('Other','Other')
-        )
+    CHOICE_CATEGORY = [
+        ('ROADS', 'Roads & Infrastructure'),
+        ('TRAFFIC', 'Traffic & Road Safety'),
+        ('WATER', 'Water Supply'),
+        ('SEWERAGE', 'Sewerage & Drainage'),
+        ('SANITATION', 'Sanitation & Garbage'),
+        ('LIGHTING', 'Street Lighting'),
+        ('PARKS', 'Parks & Public Spaces'),
+        ('ANIMALS', 'Stray Animals'),
+        ('ILLEGAL_CONSTRUCTION', 'Illegal Construction'),
+        ('ENCROACHMENT', 'Encroachment'),
+        ('PROPERTY_DAMAGE', 'Public Property Damage'),
+        ('ELECTRICITY', 'Electricity & Power Issues'),
+        ('OTHER', 'Other'),
+    ]
     CHOICE_PRIORITY=(
         ('Low','Low'),
         ('Medium','Medium'),
@@ -23,7 +27,7 @@ class Complaint(models.Model):
         ('in-progress','In Progress'),
         ('resolved','Resolved')
         )
-    
+    # user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='complaints')
     title=models.CharField(max_length=100)
     Category=models.CharField(max_length=50, choices=CHOICE_CATEGORY, default='Other')
     Description=models.CharField(max_length=300)

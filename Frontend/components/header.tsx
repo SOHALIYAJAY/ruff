@@ -14,6 +14,7 @@ export default function Header() {
     { label: 'About Us', href: '/about' },
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Admin', href: '/admin' },
+    { label: 'Department', href: '/department' },
     { label: 'Contact', href: '/contact' },
     { label: 'My Complaints', href: '/my-complaints' },
   ]

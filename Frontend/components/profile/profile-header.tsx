@@ -42,7 +42,7 @@ export default function ProfileHeader({
 
       {/* Title and Subtitle */}
       <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{title} </h1>
         <p className="text-slate-600 mt-2">{subtitle}</p>
       </div>
     </div>

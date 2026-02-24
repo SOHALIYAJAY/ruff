@@ -1,29 +1,33 @@
 import { Button } from '@/components/ui/button'
 import { ArrowRight, CheckCircle } from 'lucide-react'
 import Image from 'next/image'
-
+import Link from 'next/link'
 export default function HeroSection() {
   return (
     <>
-      {/* Full Size Government Image */}
+      {/* Full Size Ahmedabad Sabarmati Riverfront Hero */}
       <section className="relative w-full h-screen">
-        <Image
-          src="/civic-engagement-hero.jpg"
-          alt="Citizens Engaged in Civic Participation - Gujarat Civic Portal"
-          fill
-          className="object-cover"
-          priority
-        />
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1567157577867-05ccb1388e66?q=80&w=2070&auto=format&fit=crop')`,
+            backgroundPosition: 'center',
+          }}
+        >
+          {/* Fallback gradient if image doesn't load */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-indigo-800/20 to-amber-600/20"></div>
+        </div>
+        
         {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60"></div>
         
         {/* Overlay content */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center text-white px-4 max-w-3xl slide-in-up">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6 leading-tight drop-shadow-lg">
               Gujarat Civic Complaint Portal
             </h1>
-            <p className="text-xl sm:text-2xl text-white/90 mb-8">
+            <p className="text-xl sm:text-2xl text-white/90 mb-8 drop-shadow-md">
               Transparent Governance. Citizen Empowerment. Smart Solutions.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -64,19 +68,21 @@ export default function HeroSection() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <Link href='/raise-complaint'>
               <Button
                 size="lg"
-                className="bg-accent text-accent-foreground hover:bg-yellow-500 font-semibold gap-2"
-              >
+                className="bg-accent text-accent-foreground hover:bg-yellow-500 font-semibold gap-2">
                 Raise Complaint <ArrowRight className="w-5 h-5" />
               </Button>
+              </Link>
+               <Link href='/my-complaints' >
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white text-white hover:bg-white/10 font-semibold"
-              >
+                className="border-white text-white hover:bg-white/10 font-semibold">
                 Track Status
               </Button>
+               </Link>
             </div>
 
             <div className="flex flex-col gap-3">

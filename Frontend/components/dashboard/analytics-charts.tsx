@@ -3,7 +3,7 @@
 export default function AnalyticsCharts() {
   return (
     <section className="space-y-4">
-      <h2 className="text-2xl font-bold text-primary">Analytics Overview</h2>
+      <h2 className="text-2xl font-bold text-primary">Analytics Overview DO in Python OK SO NOW it is Stop</h2>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Complaint Status Pie Chart */}

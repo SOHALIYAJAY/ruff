@@ -73,10 +73,8 @@ export default function FAQSection() {
           <p className="text-muted-foreground mb-3">
             Didn't find the answer you're looking for?
           </p>
-          <a
-            href="#contact-form"
-            className="inline-block px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors"
-          >
+          <a href="/contact-form"
+            className="inline-block px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition-colors">
             Contact Our Support Team
           </a>
         </div>
