@@ -5,7 +5,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from complaints.models import Complaint
 from complaints.serializers import ComplaintSerializer
-from django.contrib.auth.models import User 
+from accounts.models import CustomUser
 from rest_framework.permissions import IsAuthenticated
 
 class getcomplaint(ListAPIView):
@@ -59,10 +59,21 @@ def complaintDetails(pk):
   
 class UserDetail(APIView):
     def get(self, request):
-        user_detail = User.objects.get(pk=1)
-        return Response({
-            'id': user_detail.id,
-            'Username': user_detail.username,
-            'email': user_detail.email,
-            'Date': user_detail.date_joined
-        })
+        try:
+            # Get user from token if authenticated, otherwise get first user
+            if request.user and request.user.is_authenticated:
+                user_detail = request.user
+            else:
+                user_detail = CustomUser.objects.first()
+            
+            if not user_detail:
+                return Response({'error': 'No user found'}, status=404)
+            
+            return Response({
+                'id': user_detail.id,
+                'Username': user_detail.username or user_detail.email.split('@')[0],
+                'email': user_detail.email,
+                'Date': user_detail.date_joined.strftime('%Y-%m-%d') if hasattr(user_detail, 'date_joined') else None
+            })
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)

@@ -39,6 +39,6 @@ urlpatterns = [
     path('api/login/', LoginView.as_view(), name='login'),
     path('api/logout/', LogoutView.as_view(), name='logout'),
     path('api/google-login/', GoogleLoginView.as_view(), name='google-login'),
-
+    path('api/userdetails/', UserDetail.as_view(), name='user-details'),
     path('api/contact/',ContactUSview.as_view(),name='contact'),
 ]
