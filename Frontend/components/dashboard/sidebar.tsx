@@ -35,12 +35,12 @@ export default function DashboardSidebar() {
       icon: <Eye className="w-5 h-5" />,
       href: '/my-complaints',
     },
-    {
-      label: 'Notifications',
-      icon: <Bell className="w-5 h-5" />,
-      href: '/notifications',
-      badge: 2,
-    },
+    // {
+    //   label: 'Notifications',
+    //   icon: <Bell className="w-5 h-5" />,
+    //   href: '/notifications',
+    //   badge: 2,
+    // },
     {
       label: 'Profile',
       icon: <User className="w-5 h-5" />,
@@ -97,11 +97,11 @@ export default function DashboardSidebar() {
                     {item.icon}
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  {item.badge && (
+                  {/* {item.badge && (
                     <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
                       {item.badge}
                     </span>
-                  )}
+                  )} */}
                   {isActive(item.href) && <ChevronRight className="w-4 h-4" />}
                 </div>
               </Link>

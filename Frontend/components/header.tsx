@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import GoogleProvider from './GoogleProvider'
 import GoogleLoginBtn from './GoogleLoginBtn'
 
 export default function Header() {
@@ -22,7 +23,7 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between h-24">
           {/* Logo and Portal Name */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center text-white font-bold text-lg">
@@ -35,7 +36,7 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-8 md:ml-8 lg:ml-12">
             {navItems.map((item) => (
               <Link
                 key={item.label}
@@ -49,7 +50,9 @@ export default function Header() {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <GoogleLoginBtn />
+            <GoogleProvider>
+              <GoogleLoginBtn />
+            </GoogleProvider>
             <Link href="/raise-complaint">
               <Button className="bg-accent hover:bg-yellow-500 text-accent-foreground">
                 Raise Complaint
@@ -81,7 +84,9 @@ export default function Header() {
                 </Link>
               ))}
               <div className="flex gap-2 px-4 pt-4">
-                <GoogleLoginBtn />
+                <GoogleProvider>
+                  <GoogleLoginBtn />
+                </GoogleProvider>
                 <Link href="/raise-complaint" className="flex-1">
                   <Button className="w-full bg-accent hover:bg-yellow-500 text-accent-foreground">
                     Raise Complaint

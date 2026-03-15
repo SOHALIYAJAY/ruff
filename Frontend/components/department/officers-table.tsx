@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import Link from "next/link"
 import {
   Search,
   Filter,
@@ -14,106 +15,49 @@ import {
   SortAsc,
   SortDesc,
 } from "lucide-react"
+import api from '@/lib/axios'
 
 export interface Officer {
-  id: string
+  officer_id: string
   name: string
-  avatar: string
-  designation: string
   email: string
   phone: string
-  activeComplaints: number
-  resolvedCount: number
-  slaPerformance: number
-  status: "Active" | "On Leave" | "Inactive"
-  maxCapacity: number
+  is_available: boolean
 }
 
-export const officerData: Officer[] = [
-  { id: "OFF-001", name: "Rajesh Kumar", avatar: "RK", designation: "Senior Engineer", email: "rajesh.k@pwd.guj.gov.in", phone: "+91 98765 43210", activeComplaints: 18, resolvedCount: 142, slaPerformance: 94, status: "Active", maxCapacity: 25 },
-  { id: "OFF-002", name: "Priya Sharma", avatar: "PS", designation: "Junior Engineer", email: "priya.s@pwd.guj.gov.in", phone: "+91 98765 43211", activeComplaints: 22, resolvedCount: 118, slaPerformance: 87, status: "Active", maxCapacity: 25 },
-  { id: "OFF-003", name: "Amit Patel", avatar: "AP", designation: "Assistant Engineer", email: "amit.p@pwd.guj.gov.in", phone: "+91 98765 43212", activeComplaints: 12, resolvedCount: 198, slaPerformance: 96, status: "Active", maxCapacity: 25 },
-  { id: "OFF-004", name: "Neha Singh", avatar: "NS", designation: "Senior Engineer", email: "neha.s@pwd.guj.gov.in", phone: "+91 98765 43213", activeComplaints: 8, resolvedCount: 165, slaPerformance: 92, status: "Active", maxCapacity: 25 },
-  { id: "OFF-005", name: "Vikram Desai", avatar: "VD", designation: "Junior Engineer", email: "vikram.d@pwd.guj.gov.in", phone: "+91 98765 43214", activeComplaints: 24, resolvedCount: 89, slaPerformance: 78, status: "Active", maxCapacity: 25 },
-  { id: "OFF-006", name: "Sunita Rao", avatar: "SR", designation: "Executive Engineer", email: "sunita.r@pwd.guj.gov.in", phone: "+91 98765 43215", activeComplaints: 0, resolvedCount: 210, slaPerformance: 97, status: "On Leave", maxCapacity: 25 },
-  { id: "OFF-007", name: "Deepak Joshi", avatar: "DJ", designation: "Assistant Engineer", email: "deepak.j@pwd.guj.gov.in", phone: "+91 98765 43216", activeComplaints: 15, resolvedCount: 134, slaPerformance: 91, status: "Active", maxCapacity: 25 },
-  { id: "OFF-008", name: "Kavita Mehta", avatar: "KM", designation: "Junior Engineer", email: "kavita.m@pwd.guj.gov.in", phone: "+91 98765 43217", activeComplaints: 0, resolvedCount: 76, slaPerformance: 85, status: "Inactive", maxCapacity: 25 },
-  { id: "OFF-009", name: "Rohit Trivedi", avatar: "RT", designation: "Senior Engineer", email: "rohit.t@pwd.guj.gov.in", phone: "+91 98765 43218", activeComplaints: 20, resolvedCount: 156, slaPerformance: 88, status: "Active", maxCapacity: 25 },
-  { id: "OFF-010", name: "Anjali Parikh", avatar: "AN", designation: "Assistant Engineer", email: "anjali.p@pwd.guj.gov.in", phone: "+91 98765 43219", activeComplaints: 10, resolvedCount: 112, slaPerformance: 93, status: "Active", maxCapacity: 25 },
-  { id: "OFF-011", name: "Suresh Bhatt", avatar: "SB", designation: "Junior Engineer", email: "suresh.b@pwd.guj.gov.in", phone: "+91 98765 43220", activeComplaints: 23, resolvedCount: 67, slaPerformance: 74, status: "Active", maxCapacity: 25 },
-  { id: "OFF-012", name: "Meera Chauhan", avatar: "MC", designation: "Executive Engineer", email: "meera.c@pwd.guj.gov.in", phone: "+91 98765 43221", activeComplaints: 5, resolvedCount: 245, slaPerformance: 98, status: "Active", maxCapacity: 25 },
-]
-
-const statusColors: Record<string, string> = {
-  Active: "bg-green-100 text-[#16a34a] border-green-200",
-  "On Leave": "bg-amber-100 text-[#f59e0b] border-amber-200",
-  Inactive: "bg-slate-100 text-slate-500 border-slate-200",
-}
-
-function WorkloadBar({ active, max }: { active: number; max: number }) {
-  const percent = Math.round((active / max) * 100)
-  let barColor = "bg-[#16a34a]"
-  let label = "Normal"
-  if (percent >= 60 && percent < 80) {
-    barColor = "bg-[#f59e0b]"
-    label = "Moderate"
-  }
-  if (percent >= 80) {
-    barColor = "bg-[#dc2626]"
-    label = "Overloaded"
-  }
-
-  return (
-    <div className="min-w-[120px]">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] font-medium text-slate-500">{active}/{max}</span>
-        <span className={`text-[10px] font-semibold ${percent >= 80 ? "text-[#dc2626]" : percent >= 60 ? "text-[#f59e0b]" : "text-[#16a34a]"}`}>
-          {label}
-        </span>
-      </div>
-      <div className="bg-slate-100 rounded-full h-2 overflow-hidden">
-        <div
-          className={`${barColor} h-full rounded-full transition-all duration-500`}
-          style={{ width: `${percent}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function SlaIndicator({ percent }: { percent: number }) {
-  let color = "text-[#16a34a]"
-  let bg = "bg-green-50"
-  if (percent < 85) {
-    color = "text-[#f59e0b]"
-    bg = "bg-amber-50"
-  }
-  if (percent < 80) {
-    color = "text-[#dc2626]"
-    bg = "bg-red-50"
-  }
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${color} ${bg}`}>
-      {percent}%
-    </span>
-  )
-}
-
-type SortKey = "workload" | "performance" | "sla" | "name"
+type SortKey = "name"
 
 export default function OfficersTable({
   onViewProfile,
   onAssignComplaint,
 }: {
-  onViewProfile: (officer: Officer) => void
+  onViewProfile: (officerId: string) => void
   onAssignComplaint: (officer: Officer) => void
 }) {
+  const [officers, setOfficers] = useState<Officer[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const [page, setPage] = useState(1)
   const perPage = 8
+
+  useEffect(() => {
+    fetchOfficers()
+  }, [])
+
+  const fetchOfficers = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get('/api/officerinfo/')
+      setOfficers(response.data)
+    } catch (error) {
+      console.error('Error fetching officers:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -125,39 +69,24 @@ export default function OfficersTable({
   }
 
   const filtered = useMemo(() => {
-    let result = officerData.filter((o) => {
+    let result = officers.filter((o) => {
       const matchesSearch =
         o.name.toLowerCase().includes(search.toLowerCase()) ||
-        o.id.toLowerCase().includes(search.toLowerCase())
-      const matchesStatus = statusFilter === "All" || o.status === statusFilter
+        o.officer_id.toLowerCase().includes(search.toLowerCase())
+      const matchesStatus = statusFilter === "All" || 
+        (statusFilter === "Available" && o.is_available) ||
+        (statusFilter === "Unavailable" && !o.is_available)
       return matchesSearch && matchesStatus
     })
 
     result.sort((a, b) => {
-      let valA: number, valB: number
-      switch (sortKey) {
-        case "workload":
-          valA = a.activeComplaints / a.maxCapacity
-          valB = b.activeComplaints / b.maxCapacity
-          break
-        case "performance":
-          valA = a.resolvedCount
-          valB = b.resolvedCount
-          break
-        case "sla":
-          valA = a.slaPerformance
-          valB = b.slaPerformance
-          break
-        default:
-          return sortDir === "asc"
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name)
-      }
-      return sortDir === "asc" ? valA - valB : valB - valA
+      return sortDir === "asc"
+        ? a.name.localeCompare(b.name)
+        : b.name.localeCompare(a.name)
     })
 
     return result
-  }, [search, statusFilter, sortKey, sortDir])
+  }, [officers, search, statusFilter, sortKey, sortDir])
 
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -171,9 +100,15 @@ export default function OfficersTable({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Officers Workforce</h3>
-            <p className="text-sm text-slate-500">
-              {filtered.length} officers in department
-            </p>
+            <p className="text-sm text-slate-500">{filtered.length} officers in department</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link href="/department/officers/create" className="inline-block">
+              <button className="flex items-center gap-2 px-3 py-2 text-sm text-white bg-[#7c3aed] rounded-lg hover:bg-[#6d28d9] transition-colors">
+                <UserPlus className="w-4 h-4" />
+                Create Officer
+              </button>
+            </Link>
           </div>
         </div>
 
@@ -200,45 +135,22 @@ export default function OfficersTable({
               className="text-sm border border-[#e2e8f0] rounded-lg px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20"
             >
               <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="On Leave">On Leave</option>
-              <option value="Inactive">Inactive</option>
+              <option value="Available">Available</option>
+              <option value="Unavailable">Unavailable</option>
             </select>
           </div>
 
           {/* Sort options */}
           <button
-            onClick={() => handleSort("workload")}
+            onClick={() => handleSort("name")}
             className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${
-              sortKey === "workload"
+              sortKey === "name"
                 ? "bg-[#1e40af]/10 text-[#1e40af] border-[#1e40af]/30"
                 : "text-slate-600 bg-white border-[#e2e8f0] hover:bg-slate-50"
             }`}
           >
-            {sortKey === "workload" && <SortIcon className="w-3.5 h-3.5" />}
-            Workload
-          </button>
-          <button
-            onClick={() => handleSort("performance")}
-            className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${
-              sortKey === "performance"
-                ? "bg-[#1e40af]/10 text-[#1e40af] border-[#1e40af]/30"
-                : "text-slate-600 bg-white border-[#e2e8f0] hover:bg-slate-50"
-            }`}
-          >
-            {sortKey === "performance" && <SortIcon className="w-3.5 h-3.5" />}
-            Performance
-          </button>
-          <button
-            onClick={() => handleSort("sla")}
-            className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${
-              sortKey === "sla"
-                ? "bg-[#1e40af]/10 text-[#1e40af] border-[#1e40af]/30"
-                : "text-slate-600 bg-white border-[#e2e8f0] hover:bg-slate-50"
-            }`}
-          >
-            {sortKey === "sla" && <SortIcon className="w-3.5 h-3.5" />}
-            SLA %
+            {sortKey === "name" && <SortIcon className="w-3.5 h-3.5" />}
+            Name
           </button>
         </div>
       </div>
@@ -250,85 +162,56 @@ export default function OfficersTable({
             <tr className="border-b border-[#e2e8f0] bg-[#f1f5f9]">
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">ID</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Officer</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">Designation</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider hidden xl:table-cell">Email</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider hidden xl:table-cell">Phone</th>
-              <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Active</th>
-              <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Resolved</th>
-              <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs uppercase tracking-wider hidden md:table-cell">SLA %</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Email</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Phone</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider hidden lg:table-cell">Workload</th>
               <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e2e8f0]">
-            {paginated.map((o) => (
-              <tr key={o.id} className="hover:bg-blue-50/40 transition-colors">
-                <td className="px-4 py-3.5 font-mono text-[#1e40af] font-semibold text-xs">{o.id}</td>
-                <td className="px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 ${
-                      o.status === "Active" ? "bg-[#1e40af]" : o.status === "On Leave" ? "bg-[#f59e0b]" : "bg-slate-400"
-                    }`}>
-                      {o.avatar}
-                    </div>
-                    <span className="font-medium text-slate-800 whitespace-nowrap">{o.name}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3.5 text-slate-600 hidden md:table-cell">{o.designation}</td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs hidden xl:table-cell">{o.email}</td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs hidden xl:table-cell">{o.phone}</td>
-                <td className="px-4 py-3.5 text-center hidden lg:table-cell">
-                  <span className="font-semibold text-slate-800">{o.activeComplaints}</span>
-                </td>
-                <td className="px-4 py-3.5 text-center hidden lg:table-cell">
-                  <span className="font-semibold text-slate-800">{o.resolvedCount}</span>
-                </td>
-                <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                  <SlaIndicator percent={o.slaPerformance} />
-                </td>
-                <td className="px-4 py-3.5">
-                  <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${statusColors[o.status]}`}>
-                    {o.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3.5 hidden lg:table-cell">
-                  <WorkloadBar active={o.activeComplaints} max={o.maxCapacity} />
-                </td>
-                <td className="px-4 py-3.5">
-                  <div className="flex items-center justify-center gap-0.5">
-                    <button title="View Profile" onClick={() => onViewProfile(o)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button title="Assign Complaint" onClick={() => onAssignComplaint(o)} className="p-1.5 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
-                      <UserPlus className="w-4 h-4" />
-                    </button>
-                    <button title="View Assigned" className="p-1.5 text-[#16a34a] hover:bg-green-50 rounded transition-colors">
-                      <FileText className="w-4 h-4" />
-                    </button>
-                    <button title="Send Message" className="p-1.5 text-slate-500 hover:bg-slate-50 rounded transition-colors">
-                      <MessageSquare className="w-4 h-4" />
-                    </button>
-                    <button
-                      title={o.status === "Active" ? "Deactivate" : "Activate"}
-                      className={`p-1.5 rounded transition-colors ${
-                        o.status === "Active"
-                          ? "text-[#dc2626] hover:bg-red-50"
-                          : "text-[#16a34a] hover:bg-green-50"
-                      }`}
-                    >
-                      <Power className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {paginated.length === 0 && (
+            {loading ? (
               <tr>
-                <td colSpan={11} className="px-5 py-12 text-center text-slate-400">
-                  No officers match your filters.
+                <td colSpan={6} className="px-5 py-12 text-center text-slate-400">
+                  Loading officers...
                 </td>
               </tr>
+            ) : paginated.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-12 text-center text-slate-400">
+                  No officers found.
+                </td>
+              </tr>
+            ) : (
+              paginated.map((o) => (
+                <tr key={o.officer_id} className="hover:bg-blue-50/40 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-[#1e40af] font-semibold text-xs">{o.officer_id}</td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 bg-[#1e40af]">
+                        {o.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <span className="font-medium text-slate-800 whitespace-nowrap">{o.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3.5 text-slate-500 text-xs">{o.email}</td>
+                  <td className="px-4 py-3.5 text-slate-500 text-xs">{o.phone}</td>
+                  <td className="px-4 py-3.5">
+                    <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
+                      o.is_available ? "bg-green-100 text-[#16a34a] border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
+                    }`}>
+                      {o.is_available ? 'Available' : 'Unavailable'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <button title="View Profile" onClick={() => onViewProfile(o.officer_id)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      {/* Assign action removed per request */}
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

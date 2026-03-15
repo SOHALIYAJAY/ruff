@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, Bell, Search, LogOut, Settings, LayoutDashboard, FileText, Users, Building2, UserCog, Tag, AlertTriangle, BarChart3, BellRing } from 'lucide-react'
+import { Menu, X, Bell, Search, LogOut, Settings, LayoutDashboard, FileText, Users, Building2, UserCog, Tag, AlertTriangle } from 'lucide-react'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -11,16 +11,25 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin/dashboard' },
-    { icon: FileText, label: 'Complaints', path: '/admin/complaints' },
-    { icon: Users, label: 'Users', path: '/admin/users' },
-    { icon: Building2, label: 'Departments', path: '/admin/departments' },
-    { icon: UserCog, label: 'Officers', path: '/admin/officers' },
-    { icon: Tag, label: 'Categories', path: '/admin/categories' },
-    { icon: AlertTriangle, label: 'Escalations', path: '/admin/escalations' },
-    { icon: BarChart3, label: 'Reports', path: '/admin/reports' },
-    { icon: BellRing, label: 'Notifications', path: '/admin/notifications' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/admin', group: 'Main' },
+    { icon: FileText, label: 'All Complaints', path: '/admin/complaints', group: 'Management' },
+    // 'Assign Complaints' removed to hide assignment page from admin UI
+    { icon: Building2, label: 'Departments', path: '/admin/departments', group: 'Organization' },
+    { icon: UserCog, label: 'Officers', path: '/admin/officers', group: 'Organization' },
+    { icon: Users, label: 'Users', path: '/admin/users', group: 'Organization' },
+    { icon: Tag, label: 'Categories', path: '/admin/categories', group: 'Configuration' },
   ]
+
+  // Group menu items
+  const groupedMenuItems = menuItems.reduce((acc, item) => {
+    const group = acc.find(g => g.name === item.group)
+    if (group) {
+      group.items.push(item)
+    } else {
+      acc.push({ name: item.group, items: [item] })
+    }
+    return acc
+  }, [] as any[])
 
   return (
     <div className="flex h-screen bg-slate-100">
@@ -31,40 +40,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } bg-white border-r border-slate-200 transition-all duration-300 flex flex-col overflow-y-auto shadow-sm`}
       >
         {/* Logo */}
-        <div className="p-6 border-b border-slate-200">
+        <div className="p-6 border-b border-slate-200 bg-gradient-to-b from-blue-50 to-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-lg">G</span>
             </div>
             {sidebarOpen && (
               <div>
-                <h1 className="text-lg font-bold text-slate-800">GovAdmin</h1>
-                <p className="text-xs text-slate-500">Control Panel</p>
+                <h1 className="text-lg font-bold text-blue-900">CivicTrack</h1>
+                <p className="text-xs text-blue-600">Admin Portal</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Menu */}
-        <nav className="flex-1 p-3 space-y-1">
-          {menuItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.path
-            return (
-              <button
-                key={item.path}
-                onClick={() => router.push(item.path)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 font-medium before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:bg-blue-700 before:rounded-r'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span className="text-sm">{item.label}</span>}
-              </button>
-            )
-          })}
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+          {groupedMenuItems.map((group) => (
+            <div key={group.name}>
+              {sidebarOpen && (
+                <p className="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{group.name}</p>
+              )}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon
+                  const isActive = pathname === item.path
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => router.push(item.path)}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative ${
+                        isActive
+                          ? 'bg-blue-50 text-blue-700 font-semibold border-l-4 border-blue-700'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {sidebarOpen && <span className="text-sm">{item.label}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Footer */}
@@ -83,7 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* HEADER */}
-        <header className="bg-white border-b border-slate-200 shadow-sm z-10">
+        <header className="bg-white border-b border-slate-200 shadow-sm z-10 sticky top-0">
           <div className="flex items-center justify-between h-16 px-6">
             <div className="flex items-center gap-4">
               <button

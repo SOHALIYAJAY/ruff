@@ -53,6 +53,7 @@ export default function RaiseComplaintForm() {
   const [dragActive, setDragActive] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [fileError, setFileError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -165,54 +166,149 @@ export default function RaiseComplaintForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return
+    }
+    
+    setIsSubmitting(true)
+    
     // Validate required fields
-    if (!formData.title || !formData.Category || !formData.Description || !formData.location_address || !formData.location_District || !formData.location_taluk) {
+    if (!formData.title || !formData.Category || !formData.Description || !formData.location_address || !formData.location_District || !formData.location_taluk || !formData.priority_level) {
       alert("Please fill in all required fields")
+      setIsSubmitting(false)
+      return
+    }
+
+    // Validate priority level
+    const validPriorities = ['low', 'medium', 'high']
+    if (!validPriorities.includes(formData.priority_level.toLowerCase())) {
+      alert("Invalid priority level selected")
+      setIsSubmitting(false)
+      return
+    }
+
+    // Validate field lengths
+    if (formData.title.length > 200) {
+      alert("Title is too long (max 200 characters)")
+      setIsSubmitting(false)
+      return
+    }
+    if (formData.Description.length > 2000) {
+      alert("Description is too long (max 2000 characters)")
+      setIsSubmitting(false)
       return
     }
 
     try {
       // Prepare data for backend - only send fields that exist in Django model
+      // Generate unique complaint ID (max 10 characters)
+      const generateCompId = () => {
+        const timestamp = Date.now().toString(36) // Convert to base36 for shorter string
+        const random = Math.random().toString(36).substring(2, 5) // 3 random chars
+        const extraRandom = Math.random().toString(36).substring(2, 4) // 2 more random chars
+        return `CMP-${timestamp.slice(-4)}${random}${extraRandom}`.slice(0, 10) // Total: 4 + 6 = 10 chars
+      }
+
       const submitData = {
+        id: generateCompId(), // Generate unique complaint ID (max 10 chars)
         title: formData.title,
         Category: formData.Category,
         Description: formData.Description,
         location_address: formData.location_address,
         location_District: formData.location_District,
         location_taluk: formData.location_taluk,
-        priority_level: formData.priority_level.charAt(0).toUpperCase() + formData.priority_level.slice(1), // ↩️ REVERTED TO ORIGINAL
+        priority_level: formData.priority_level.charAt(0).toUpperCase() + formData.priority_level.slice(1), // Convert to TitleCase
         status: 'Pending'
       }
 
       console.log('Submitting data:', submitData)
 
-      const response = await fetch("http://127.0.0.1:8000/api/raisecomplaint/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(submitData) 
-      })
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const endpoint = `${API_BASE_URL}/api/raisecomplaint/`
+      console.log('Submitting to endpoint:', endpoint)
+
+      // Add retry logic for server errors
+      let response: Response | undefined
+      let retryCount = 0
+      const maxRetries = 2
+      
+      while (retryCount <= maxRetries) {
+        try {
+          response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(submitData) 
+          })
+          
+          // If successful, break out of retry loop
+          if (response.ok) {
+            break
+          }
+          
+          // If 500 error and we haven't exhausted retries, wait and retry
+          if (response.status === 500 && retryCount < maxRetries) {
+            console.log(`Server error 500, retrying... (${retryCount + 1}/${maxRetries + 1})`)
+            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+            retryCount++
+            continue
+          }
+          
+          // For other errors or if we've exhausted retries, break
+          break
+        } catch (fetchError) {
+          console.error('Fetch error:', fetchError)
+          if (retryCount < maxRetries) {
+            console.log(`Fetch failed, retrying... (${retryCount + 1}/${maxRetries + 1})`)
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+            retryCount++
+            continue
+          }
+          throw fetchError
+        }
+      }
+
+      // Ensure response is defined
+      if (!response) {
+        throw new Error('Failed to get response from server')
+      }
 
       let data = {}
       try {
         const text = await response.text()
+        console.log('Raw response text:', text)
+        console.log('Response status:', response.status)
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+        
+        // Check if response is HTML (error page) instead of JSON
+        if (text.includes('<!DOCTYPE') || text.includes('<html>')) {
+          console.error('Server returned HTML instead of JSON - likely an error page')
+          console.error('HTML response preview:', text.substring(0, 500))
+          throw new Error(`Server error (${response.status}): Backend returned an error page instead of JSON response`)
+        }
+        
         if (text) {
           data = JSON.parse(text)
         }
       } catch (jsonError) {
         console.error('Failed to parse response:', jsonError)
+        // If JSON parsing fails and response is not OK, it's likely a server error
         if (!response.ok) {
           throw new Error(`Server error: ${response.status} ${response.statusText}`)
         }
+        // If response is OK but JSON parsing failed, it's a format issue
+        throw new Error('Invalid response format from server')
       }
 
-      console.log('Server response:', data)
+      console.log('Parsed server response:', data)
 
+      // Check response status first
       if (!response.ok) {
-        const errorMsg = data.errors 
-          ? Object.entries(data.errors).map(([key, val]) => `${key}: ${val}`).join(', ')
-          : data.message || `Server error: ${response.status} ${response.statusText}`
+        const errorMsg = (data as any).errors 
+          ? Object.entries((data as any).errors).map(([key, val]) => `${key}: ${val}`).join(', ')
+          : (data as any).message || `Server error: ${response.status} ${response.statusText}`
         throw new Error(errorMsg)
       }
 
@@ -235,10 +331,33 @@ export default function RaiseComplaintForm() {
       })
       setUploadedFiles([])
       setFilePreviews([])
-    } catch (error) {
-      console.error('Error submitting complaint:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      alert(`Error submitting complaint: ${errorMessage}\n\nPlease check:\n1. Django server is running on http://127.0.0.1:8000\n2. All required fields are filled\n3. Check browser console for details`)
+    } catch (error: any) {
+      console.error('Complaint submission error:', error)
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to submit complaint. Please try again.'
+      
+      if (error.message.includes('Server error (500)') || error.message.includes('Internal Server Error')) {
+        errorMessage = 'Server is currently experiencing technical difficulties. Please try again in a few minutes.'
+      } else if (error.message.includes('Server error (404)')) {
+        errorMessage = 'Complaint submission endpoint not found. Please contact support.'
+      } else if (error.message.includes('Server error (400)')) {
+        errorMessage = 'Invalid data provided. Please check all fields and try again.'
+      } else if (error.message.includes('id') || error.message.includes('already exists')) {
+        errorMessage = 'Complaint ID conflict. Please try submitting again.'
+      } else if (error.message.includes('Server returned an error page')) {
+        errorMessage = 'Server is experiencing issues. Please try again later.'
+      } else if (error.message.includes('Invalid response format')) {
+        errorMessage = 'Server response format is invalid. Please contact support.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      alert(`Error: ${errorMessage}`)
+      setSubmitted(false) // Reset submitted state on error
+      setIsSubmitting(false) // Reset submitting state on error
+    } finally {
+      setIsSubmitting(false) // Ensure loading state is reset
     }
   }
 
@@ -489,8 +608,16 @@ export default function RaiseComplaintForm() {
                   type="submit"
                   className="flex-1 bg-accent text-accent-foreground hover:bg-yellow-500 font-semibold py-3 rounded-lg transition-all duration-200"
                   size="lg"
+                  disabled={isSubmitting}
                 >
-                  Submit Complaint
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      Submitting...
+                    </div>
+                  ) : (
+                    'Submit Complaint'
+                  )}
                 </Button>
                 <Button 
                   type="button"

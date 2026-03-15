@@ -1,7 +1,7 @@
 'use client'
 
-import { Phone, Globe, Plus, Minus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Phone, Globe } from 'lucide-react'
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useState, useEffect } from 'react'
 
@@ -27,10 +27,7 @@ export default function UtilityBar() {
               <div className="w-32 h-8 bg-secondary rounded-md"></div>
             </div>
             
-            <div className="flex gap-1">
-              <div className="h-7 w-7 bg-secondary rounded-md"></div>
-              <div className="h-7 w-7 bg-secondary rounded-md"></div>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -58,24 +55,7 @@ export default function UtilityBar() {
             </Select>
           </div>
           
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 bg-secondary hover:bg-secondary text-secondary-foreground"
-              aria-label="Increase text size"
-            >
-              <Plus className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 w-7 p-0 bg-secondary hover:bg-secondary text-secondary-foreground"
-              aria-label="Decrease text size"
-            >
-              <Minus className="w-3 h-3" />
-            </Button>
-          </div>
+          
         </div>
       </div>
     </div>

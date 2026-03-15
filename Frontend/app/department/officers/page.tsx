@@ -7,10 +7,10 @@ import OfficersTable from "@/components/department/officers-table"
 import type { Officer } from "@/components/department/officers-table"
 import OfficerProfileModal from "@/components/department/officer-profile-modal"
 import AssignComplaintToOfficerModal from "@/components/department/assign-complaint-modal"
-import OfficerPerformancePanel from "@/components/department/officer-performance-panel"
+// import OfficerPerformancePanel from "@/components/department/officer-performance-panel"
 
 export default function OfficersPage() {
-  const [profileOfficer, setProfileOfficer] = useState<Officer | null>(null)
+  const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
   const [assignOfficer, setAssignOfficer] = useState<Officer | null>(null)
 
   return (
@@ -35,25 +35,20 @@ export default function OfficersPage() {
       {/* KPI Cards */}
       <OfficersKpiCards />
 
-      {/* Table + Performance Panel */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
-          <OfficersTable
-            onViewProfile={(o) => setProfileOfficer(o)}
-            onAssignComplaint={(o) => setAssignOfficer(o)}
-          />
-        </div>
-        <div className="xl:col-span-1">
-          <OfficerPerformancePanel />
-        </div>
+      {/* Table */}
+      <div>
+        <OfficersTable
+          onViewProfile={(officerId) => setProfileOfficerId(officerId)}
+          onAssignComplaint={(o) => setAssignOfficer(o)}
+        />
       </div>
 
       {/* Modals */}
-      {profileOfficer && (
+      {profileOfficerId && (
         <OfficerProfileModal
-          officer={profileOfficer}
-          open={!!profileOfficer}
-          onClose={() => setProfileOfficer(null)}
+          officerId={profileOfficerId}
+          open={!!profileOfficerId}
+          onClose={() => setProfileOfficerId(null)}
         />
       )}
 

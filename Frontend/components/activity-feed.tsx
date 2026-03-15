@@ -55,9 +55,14 @@ useEffect(() => {
         </div>
 
         <div className="grid gap-4">
-          {complaints.map((complaint, index) => (
+          {complaints.map((complaint, index) => {
+            // Create a unique key using multiple fields to ensure uniqueness
+            const uniqueKey = complaint.id || 
+              `${complaint.title}-${complaint.Category}-${index}`.replace(/\s+/g, '-').toLowerCase();
+            
+            return (
             <div
-              key={complaint.id}
+              key={uniqueKey}
               className="group bg-white rounded-lg border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300 overflow-hidden hover:translate-y-[-2px] slide-in-up"
               style={{
                 animationDelay: `${index * 100}ms`,
@@ -109,7 +114,8 @@ useEffect(() => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-8 text-center">

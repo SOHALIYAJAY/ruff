@@ -46,14 +46,9 @@ export default function AssignedComplaintsPage() {
       {/* Summary Cards */}
       <AssignedComplaintsStats />
 
-      {/* Main Content: Table + Analytics Sidebar */}
-      <div className="flex flex-col xl:flex-row gap-6">
-        <div className="flex-1 min-w-0">
-          <AssignedComplaintsTable onAssign={handleAssign} onViewDetails={handleViewDetails} />
-        </div>
-        <div className="w-full xl:w-72 flex-shrink-0">
-          <AssignedAnalyticsSidebar />
-        </div>
+      {/* Main Content: Table Only */}
+      <div>
+        <AssignedComplaintsTable onAssign={handleAssign} onViewDetails={handleViewDetails} />
       </div>
 
       {/* Modals */}

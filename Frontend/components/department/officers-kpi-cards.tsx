@@ -15,7 +15,6 @@ import {
 interface KpiCard {
   label: string
   value: string
-  trend: string
   trendUp: boolean
   icon: React.ReactNode
   borderColor: string
@@ -61,72 +60,77 @@ function AnimatedValue({ target, suffix }: { target: string; suffix?: string }) 
   )
 }
 
-const kpiData: KpiCard[] = [
-  {
-    label: "Total Officers",
-    value: "24",
-    trend: "+2",
-    trendUp: true,
-    icon: <Users className="w-5 h-5" />,
-    borderColor: "border-t-[#1e40af]",
-    iconBg: "bg-blue-50",
-    iconColor: "text-[#1e40af]",
-  },
-  {
-    label: "Active Officers",
-    value: "19",
-    trend: "+1",
-    trendUp: true,
-    icon: <UserCheck className="w-5 h-5" />,
-    borderColor: "border-t-[#16a34a]",
-    iconBg: "bg-green-50",
-    iconColor: "text-[#16a34a]",
-  },
-  {
-    label: "Total Assigned",
-    value: "342",
-    trend: "+18",
-    trendUp: true,
-    icon: <FileText className="w-5 h-5" />,
-    borderColor: "border-t-[#3b82f6]",
-    iconBg: "bg-sky-50",
-    iconColor: "text-[#3b82f6]",
-  },
-  {
-    label: "Avg Resolution",
-    value: "4.2",
-    trend: "-0.3",
-    trendUp: false,
-    icon: <Clock className="w-5 h-5" />,
-    borderColor: "border-t-[#f59e0b]",
-    iconBg: "bg-amber-50",
-    iconColor: "text-[#f59e0b]",
-    suffix: " hrs",
-  },
-  {
-    label: "SLA Compliance",
-    value: "91.4",
-    trend: "+1.8%",
-    trendUp: true,
-    icon: <ShieldCheck className="w-5 h-5" />,
-    borderColor: "border-t-[#7c3aed]",
-    iconBg: "bg-violet-50",
-    iconColor: "text-[#7c3aed]",
-    suffix: "%",
-  },
-  {
-    label: "Overloaded",
-    value: "3",
-    trend: "+1",
-    trendUp: true,
-    icon: <AlertTriangle className="w-5 h-5" />,
-    borderColor: "border-t-[#dc2626]",
-    iconBg: "bg-red-50",
-    iconColor: "text-[#dc2626]",
-  },
-]
+import axios from "@/lib/axios"
 
 export default function OfficersKpiCards() {
+  const [kpiData, setKpiData] = useState<KpiCard[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchKpi() {
+      setLoading(true)
+      try {
+        const res = await axios.get("/api/officer-kpi/")
+        const data = res.data
+        setKpiData([
+          {
+            label: "Total Officers",
+            value: data.total_officers.toString(),
+            trendUp: true,
+            icon: <Users className="w-5 h-5" />,
+            borderColor: "border-t-[#1e40af]",
+            iconBg: "bg-blue-50",
+            iconColor: "text-[#1e40af]",
+          },
+          {
+            label: "Active Officers",
+            value: data.active_officers.toString(),
+            trendUp: true,
+            icon: <UserCheck className="w-5 h-5" />,
+            borderColor: "border-t-[#16a34a]",
+            iconBg: "bg-green-50",
+            iconColor: "text-[#16a34a]",
+          },
+          {
+            label: "Total Assigned",
+            value: data.total_assigned.toString(),
+            trendUp: true,
+            icon: <FileText className="w-5 h-5" />,
+            borderColor: "border-t-[#3b82f6]",
+            iconBg: "bg-sky-50",
+            iconColor: "text-[#3b82f6]",
+          },
+          {
+            label: "SLA Compliance",
+            value: data.sla_compliance.toString(),
+            trendUp: true,
+            icon: <ShieldCheck className="w-5 h-5" />,
+            borderColor: "border-t-[#7c3aed]",
+            iconBg: "bg-violet-50",
+            iconColor: "text-[#7c3aed]",
+            suffix: "%",
+          },
+          {
+            label: "Overloaded",
+            value: data.overloaded.toString(),
+            trendUp: true,
+            icon: <AlertTriangle className="w-5 h-5" />,
+            borderColor: "border-t-[#dc2626]",
+            iconBg: "bg-red-50",
+            iconColor: "text-[#dc2626]",
+          },
+        ])
+      } catch (e) {
+        setKpiData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchKpi()
+  }, [])
+
+  if (loading) return <div>Loading KPI cards...</div>
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       {kpiData.map((card, i) => (

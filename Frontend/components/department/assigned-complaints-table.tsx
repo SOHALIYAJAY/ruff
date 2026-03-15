@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import api from '@/lib/axios'
 import {
   Search,
   Filter,
@@ -9,53 +10,41 @@ import {
   Eye,
   UserPlus,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  SortAsc,
+  SortDesc,
   MessageSquare,
   CheckCircle2,
   ArrowUpRight,
   Upload,
-  Calendar,
-  SortAsc,
-  SortDesc,
 } from "lucide-react"
 
 export interface Complaint {
-  id: string
+  id: number
   title: string
-  category: string
-  district: string
-  location: string
-  citizen: string
-  officer: string
-  priority: "Critical" | "High" | "Medium" | "Low"
-  status: "Open" | "In Progress" | "Resolved"
-  slaPercent: number
-  slaRemaining: string
-  date: string
+  Category: string | number
+  Description: string
+  video_image: string
+  location_District: string
+  location_address: string
+  category_code?: string
+  category_name?: string
+  priority_level: "High" | "Medium" | "Low"
+  status: "Pending" | "in-progress" | "resolved"
+  current_time: string
+  is_assignd?: boolean
 }
 
-export const complaintData: Complaint[] = [
-  { id: "PWD-1001", title: "Pothole on SG Highway", category: "Road", district: "Ahmedabad", location: "SG Highway, Bodakdev", citizen: "Ramesh Patel", officer: "Rajesh Kumar", priority: "Critical", status: "In Progress", slaPercent: 85, slaRemaining: "4h left", date: "2026-02-20" },
-  { id: "PWD-1002", title: "Broken drainage cover near AMC", category: "Drainage", district: "Vadodara", location: "AMC Road, Alkapuri", citizen: "Meera Shah", officer: "Priya Sharma", priority: "High", status: "Open", slaPercent: 45, slaRemaining: "18h left", date: "2026-02-19" },
-  { id: "PWD-1003", title: "Waterlogging in low area", category: "Water", district: "Surat", location: "Ring Road, Adajan", citizen: "Kiran Joshi", officer: "Amit Patel", priority: "Medium", status: "Resolved", slaPercent: 100, slaRemaining: "Done", date: "2026-02-18" },
-  { id: "PWD-1004", title: "Street light pole tilted dangerously", category: "Safety", district: "Rajkot", location: "Kalawad Road", citizen: "Suresh Mehta", officer: "Neha Singh", priority: "High", status: "In Progress", slaPercent: 62, slaRemaining: "10h left", date: "2026-02-17" },
-  { id: "PWD-1005", title: "Garbage accumulation on ring road", category: "Sanitation", district: "Gandhinagar", location: "Sector 21, GH Road", citizen: "Pooja Desai", officer: "Vikram Desai", priority: "Medium", status: "Open", slaPercent: 30, slaRemaining: "22h left", date: "2026-02-16" },
-  { id: "PWD-1006", title: "Bridge railing missing section", category: "Safety", district: "Bhavnagar", location: "River Bridge, NH-8", citizen: "Anand Trivedi", officer: "Unassigned", priority: "Critical", status: "Open", slaPercent: 95, slaRemaining: "1h left", date: "2026-02-15" },
-  { id: "PWD-1007", title: "Footpath tiles broken near bus stand", category: "Road", district: "Jamnagar", location: "ST Bus Stand Road", citizen: "Hetal Parikh", officer: "Rajesh Kumar", priority: "Low", status: "In Progress", slaPercent: 20, slaRemaining: "30h left", date: "2026-02-14" },
-  { id: "PWD-1008", title: "Overflowing manhole on MG Road", category: "Drainage", district: "Ahmedabad", location: "MG Road, Navrangpura", citizen: "Jayesh Rana", officer: "Priya Sharma", priority: "High", status: "Open", slaPercent: 55, slaRemaining: "14h left", date: "2026-02-13" },
-  { id: "PWD-1009", title: "Road resurfacing incomplete", category: "Road", district: "Surat", location: "Athwa Lines", citizen: "Nisha Vyas", officer: "Amit Patel", priority: "Medium", status: "Resolved", slaPercent: 100, slaRemaining: "Done", date: "2026-02-12" },
-  { id: "PWD-1010", title: "Tree fallen on public path", category: "Safety", district: "Vadodara", location: "Sayajibaug Area", citizen: "Bharat Solanki", officer: "Neha Singh", priority: "High", status: "In Progress", slaPercent: 70, slaRemaining: "8h left", date: "2026-02-11" },
-  { id: "PWD-1011", title: "Damaged speed breaker on school road", category: "Road", district: "Rajkot", location: "Near DPS School", citizen: "Rekha Modi", officer: "Vikram Desai", priority: "Medium", status: "Open", slaPercent: 40, slaRemaining: "20h left", date: "2026-02-10" },
-  { id: "PWD-1012", title: "Water pipe leak flooding road", category: "Water", district: "Gandhinagar", location: "Infocity Circle", citizen: "Darshan Patel", officer: "Unassigned", priority: "Critical", status: "Open", slaPercent: 88, slaRemaining: "3h left", date: "2026-02-09" },
-]
 
 const statusColors: Record<string, string> = {
-  Open: "bg-amber-100 text-amber-700 border-amber-200",
-  "In Progress": "bg-blue-100 text-[#1e40af] border-blue-200",
-  Resolved: "bg-green-100 text-[#16a34a] border-green-200",
+  Pending: "bg-amber-100 text-amber-700 border-amber-200",
+  "in-progress": "bg-blue-100 text-[#1e40af] border-blue-200",
+  resolved: "bg-green-100 text-[#16a34a] border-green-200",
 }
 
 const priorityColors: Record<string, string> = {
-  Critical: "bg-red-50 text-[#dc2626] border-red-200",
   High: "bg-orange-50 text-orange-600 border-orange-200",
   Medium: "bg-amber-50 text-[#f59e0b] border-amber-200",
   Low: "bg-slate-50 text-slate-500 border-slate-200",
@@ -86,7 +75,38 @@ function SlaBar({ percent, remaining }: { percent: number; remaining: string }) 
   )
 }
 
-const categories = ["All", "Road", "Drainage", "Water", "Safety", "Sanitation"]
+const categories = [
+  "All",
+  "ROADS",
+  "TRAFFIC",
+  "WATER",
+  "SEWERAGE",
+  "SANITATION",
+  "LIGHTING",
+  "PARKS",
+  "ANIMALS",
+  "ILLEGAL_CONSTRUCTION",
+  "ENCROACHMENT",
+  "PROPERTY_DAMAGE",
+  "ELECTRICITY",
+  "OTHER"
+]
+
+const allCategories = [
+  "ROADS",
+  "TRAFFIC",
+  "WATER",
+  "SEWERAGE",
+  "SANITATION",
+  "LIGHTING",
+  "PARKS",
+  "ANIMALS",
+  "ILLEGAL_CONSTRUCTION",
+  "ENCROACHMENT",
+  "PROPERTY_DAMAGE",
+  "ELECTRICITY",
+  "OTHER"
+]
 
 export default function AssignedComplaintsTable({
   onAssign,
@@ -95,36 +115,129 @@ export default function AssignedComplaintsTable({
   onAssign: (complaint: Complaint) => void
   onViewDetails: (complaint: Complaint) => void
 }) {
+  const [complaints, setComplaints] = useState<Complaint[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
   const [priorityFilter, setPriorityFilter] = useState("All")
   const [categoryFilter, setCategoryFilter] = useState("All")
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest")
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<"list" | "category">("category")
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["WATER", "ROADS"]))
   const perPage = 7
+  const [categoriesMap, setCategoriesMap] = useState<Record<string | number, string>>({})
+
+  useEffect(() => {
+    fetchComplaints()
+    fetchCategories()
+  }, [])
+
+  const fetchComplaints = async () => {
+    try {
+      const response = await api.get("/api/getcomplaint/")
+      setComplaints(response.data)
+    } catch (error) {
+      console.error('Error fetching complaints:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/api/categories/')
+      if (Array.isArray(res.data)) {
+        const map: Record<string | number, string> = {}
+        res.data.forEach((c: any) => {
+          if (c.id != null) map[c.id] = c.code
+          if (c.name) map[c.name] = c.code
+        })
+        setCategoriesMap(map)
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories', err)
+    }
+  }
+
+  const toggleCategory = (category: string) => {
+    const newExpanded = new Set(expandedCategories)
+    if (newExpanded.has(category)) {
+      newExpanded.delete(category)
+    } else {
+      newExpanded.add(category)
+    }
+    setExpandedCategories(newExpanded)
+  }
 
   const filtered = useMemo(() => {
-    let result = complaintData.filter((c) => {
+    let result = complaints.filter((c) => {
+      const rawCat = (c as any).category_code || (c as any).Category || (c as any).category_name || ""
+      let catKey = rawCat
+      if (typeof rawCat === 'number' || (typeof rawCat === 'string' && /^[0-9]+$/.test(rawCat))) {
+        catKey = categoriesMap[rawCat] || String(rawCat)
+      } else if (typeof rawCat === 'string' && categoriesMap[rawCat]) {
+        catKey = categoriesMap[rawCat]
+      }
       const matchesSearch =
         c.title.toLowerCase().includes(search.toLowerCase()) ||
-        c.id.toLowerCase().includes(search.toLowerCase())
+        c.id.toString().includes(search)
       const matchesStatus = statusFilter === "All" || c.status === statusFilter
-      const matchesPriority = priorityFilter === "All" || c.priority === priorityFilter
-      const matchesCategory = categoryFilter === "All" || c.category === categoryFilter
+      const matchesPriority = priorityFilter === "All" || c.priority_level === priorityFilter
+      const matchesCategory = categoryFilter === "All" || catKey === categoryFilter
       return matchesSearch && matchesStatus && matchesPriority && matchesCategory
     })
 
     result.sort((a, b) => {
-      const dateA = new Date(a.date).getTime()
-      const dateB = new Date(b.date).getTime()
+      const dateA = new Date(a.current_time).getTime()
+      const dateB = new Date(b.current_time).getTime()
       return sortOrder === "latest" ? dateB - dateA : dateA - dateB
     })
 
     return result
-  }, [search, statusFilter, priorityFilter, categoryFilter, sortOrder])
+  }, [complaints, search, statusFilter, priorityFilter, categoryFilter, sortOrder])
+
+  const groupedByCategory = useMemo(() => {
+    const groups: Record<string, Complaint[]> = {}
+    filtered.forEach((complaint) => {
+      const rawCat = (complaint as any).category_code || (complaint as any).Category || (complaint as any).category_name || 'Other'
+      let key: string | number = rawCat
+      if (typeof rawCat === 'number' || (typeof rawCat === 'string' && /^[0-9]+$/.test(rawCat))) {
+        key = categoriesMap[rawCat] || String(rawCat)
+      } else if (typeof rawCat === 'string' && categoriesMap[rawCat]) {
+        key = categoriesMap[rawCat]
+      }
+      if (!groups[key]) {
+        groups[key] = []
+      }
+      groups[key].push(complaint)
+    })
+    return groups
+  }, [filtered, categoriesMap])
+
+  // When category filter changes, show only that category in category view
+  const displayedCategories = useMemo(() => {
+    if (categoryFilter !== "All") {
+      return { [categoryFilter]: groupedByCategory[categoryFilter] || [] }
+    }
+    // Show all categories, even if empty
+    const allCats: Record<string, Complaint[]> = {}
+    allCategories.forEach(cat => {
+      allCats[cat] = groupedByCategory[cat] || []
+    })
+    return allCats
+  }, [categoryFilter, groupedByCategory])
 
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-12 text-center">
+        <p className="text-slate-600">Loading complaints...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
@@ -137,10 +250,25 @@ export default function AssignedComplaintsTable({
               {filtered.length} complaints assigned to department
             </p>
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 border border-[#e2e8f0] transition-colors self-start">
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("category")}
+                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+                  viewMode === "category" ? "bg-white text-[#1e40af] shadow-sm" : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                By Category
+              </button>
+            </div>
+            <button 
+              onClick={fetchComplaints}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 border border-[#e2e8f0] transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Filter row */}
@@ -166,9 +294,9 @@ export default function AssignedComplaintsTable({
               className="text-sm border border-[#e2e8f0] rounded-lg px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20"
             >
               <option value="All">All Status</option>
-              <option value="Open">Open</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
+              <option value="Pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="resolved">Resolved</option>
             </select>
           </div>
 
@@ -196,12 +324,6 @@ export default function AssignedComplaintsTable({
             ))}
           </select>
 
-          {/* Date range placeholder */}
-          <button className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-[#e2e8f0] rounded-lg hover:bg-slate-50 transition-colors">
-            <Calendar className="w-4 h-4" />
-            Date Range
-          </button>
-
           {/* Sort */}
           <button
             onClick={() => setSortOrder(sortOrder === "latest" ? "oldest" : "latest")}
@@ -213,6 +335,81 @@ export default function AssignedComplaintsTable({
         </div>
       </div>
 
+      {/* Content - Category View or List View */}
+      {viewMode === "category" ? (
+        <div className="p-5 space-y-4">
+          {Object.entries(displayedCategories).length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              No complaints found in selected category.
+            </div>
+          ) : (
+            Object.entries(displayedCategories).map(([category, complaints]) => (
+            <div key={category} className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleCategory(category)}
+                className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-slate-800">{category}</span>
+                  <span className="text-xs px-2 py-1 bg-[#1e40af] text-white rounded-full">
+                    {complaints.length}
+                  </span>
+                </div>
+                {expandedCategories.has(category) ? (
+                  <ChevronUp className="w-4 h-4 text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-600" />
+                )}
+              </button>
+              {expandedCategories.has(category) && (
+                <div className="divide-y divide-[#e2e8f0]">
+                  {complaints.map((c) => (
+                    <div key={c.id} className="p-4 hover:bg-blue-50/40 transition-colors">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-mono font-semibold text-[#1e40af]">CVT-{c.id}</span>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${priorityColors[c.priority_level]}`}>
+                              {c.priority_level}
+                            </span>
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${statusColors[c.status]}`}>
+                              {c.status}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-slate-800 mb-1">{c.title}</p>
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
+                            <span>{c.Location_District}</span>
+                            <span>•</span>
+                            <span>{c.Location_address}</span>
+                            <span>•</span>
+                            {/* <span className={c.officer === "Unassigned" ? "text-[#dc2626] italic" : ""}>
+                              {c.officer}
+                            </span> */}
+                          </div>
+                        </div>
+                          <div className="flex items-center gap-1">
+                          <button onClick={() => onViewDetails(c)} className="p-2 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          {c.is_assignd ? (
+                            <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">Assigned</span>
+                          ) : (
+                            <button onClick={() => onAssign(c)} className="p-2 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
+                              <UserPlus className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )))
+          }
+        </div>
+      ) : (
+        <>
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -237,9 +434,9 @@ export default function AssignedComplaintsTable({
               <tr key={c.id} className="hover:bg-blue-50/40 transition-colors group">
                 <td className="px-4 py-3.5 font-mono text-[#1e40af] font-semibold text-xs">{c.id}</td>
                 <td className="px-4 py-3.5 text-slate-800 font-medium max-w-[180px] truncate">{c.title}</td>
-                <td className="px-4 py-3.5 text-slate-600 hidden md:table-cell">{c.category}</td>
-                <td className="px-4 py-3.5 text-slate-600 hidden lg:table-cell">{c.district}</td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs hidden xl:table-cell max-w-[140px] truncate">{c.location}</td>
+                <td className="px-4 py-3.5 text-slate-600 hidden md:table-cell">{c.Category}</td>
+                <td className="px-4 py-3.5 text-slate-600 hidden lg:table-cell">{c.Location_District}</td>
+                <td className="px-4 py-3.5 text-slate-500 text-xs hidden xl:table-cell max-w-[140px] truncate">{c.Location_address}</td>
                 <td className="px-4 py-3.5 text-slate-600 hidden xl:table-cell">{c.citizen}</td>
                 <td className="px-4 py-3.5 hidden lg:table-cell">
                   <span className={c.officer === "Unassigned" ? "text-[#dc2626] italic text-xs" : "text-slate-600 text-xs"}>
@@ -247,8 +444,8 @@ export default function AssignedComplaintsTable({
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
-                  <span className={`text-[11px] px-2 py-1 rounded-full border font-semibold ${priorityColors[c.priority]}`}>
-                    {c.priority}
+                  <span className={`text-[11px] px-2 py-1 rounded-full border font-semibold ${priorityColors[c.priority_level]}`}>
+                    {c.priority_level}
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
@@ -259,15 +456,22 @@ export default function AssignedComplaintsTable({
                 <td className="px-4 py-3.5 hidden lg:table-cell">
                   <SlaBar percent={c.slaPercent} remaining={c.slaRemaining} />
                 </td>
-                <td className="px-4 py-3.5 text-slate-500 text-xs hidden md:table-cell">{c.date}</td>
+                <td className="px-4 py-3.5 text-slate-500 text-xs hidden md:table-cell">{c.Current_time}</td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-center gap-0.5">
                     <button title="View Details" onClick={() => onViewDetails(c)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button title="Assign Officer" onClick={() => onAssign(c)} className="p-1.5 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
-                      <UserPlus className="w-4 h-4" />
-                    </button>
+                    
+                    {c.is_assignd ? (
+                      <button title="Assigned" disabled className="p-1.5 text-slate-400 rounded transition-colors cursor-not-allowed" aria-disabled>
+                        <span className="text-xs font-medium">Assigned</span>
+                      </button>
+                    ) : (
+                      <button title="Assign Officer" onClick={() => onAssign(c)} className="p-1.5 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
+                        <UserPlus className="w-4 h-4" />
+                      </button>
+                    )}
                     <button title="Update Status" className="p-1.5 text-[#16a34a] hover:bg-green-50 rounded transition-colors">
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
@@ -332,6 +536,8 @@ export default function AssignedComplaintsTable({
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

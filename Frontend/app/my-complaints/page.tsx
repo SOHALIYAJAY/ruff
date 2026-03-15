@@ -31,8 +31,7 @@ export default function MyComplaintsPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [sortBy, setSortBy] = useState('latest')
-  const [dateRange, setDateRange] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
 
   
@@ -114,10 +113,8 @@ export default function MyComplaintsPage() {
         setSearchTerm={setSearchTerm}
         categoryFilter={categoryFilter}
         setCategoryFilter={setCategoryFilter}
-        sortBy={sortBy}
-        setSortBy={setSortBy}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
+        priorityFilter={priorityFilter}
+        setPriorityFilter={setPriorityFilter}
       />
 
       {/* Complaints List */}
@@ -127,8 +124,7 @@ export default function MyComplaintsPage() {
             filterStatus={filterStatus}
             searchTerm={searchTerm}
             categoryFilter={categoryFilter}
-            sortBy={sortBy}
-            dateRange={dateRange}
+            priorityFilter={priorityFilter}
             onSelectComplaint={setSelectedComplaint}
             complaints={complaints}
           />

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { X, UserPlus } from "lucide-react"
+import api from '@/lib/axios'
 
 interface AssignModalProps {
   open: boolean
@@ -9,23 +10,25 @@ interface AssignModalProps {
   complaint: { id: string; title: string; officer: string } | null
 }
 
-const officers = [
-  { id: "off-1", name: "Rajesh Kumar", role: "Senior Engineer" },
-  { id: "off-2", name: "Priya Sharma", role: "Civil Engineer" },
-  { id: "off-3", name: "Amit Patel", role: "Junior Engineer" },
-  { id: "off-4", name: "Neha Singh", role: "Field Inspector" },
-  { id: "off-5", name: "Vikram Desai", role: "Road Supervisor" },
-]
+interface Officer {
+  officer_id: string
+  name: string
+  email: string
+  is_available: boolean
+}
 
 export default function AssignOfficerModal({
   open,
   onClose,
   complaint,
 }: AssignModalProps) {
+  const [officers, setOfficers] = useState<Officer[]>([])
   const [selectedOfficer, setSelectedOfficer] = useState("")
   const [priority, setPriority] = useState("High")
   const [remarks, setRemarks] = useState("")
   const [animateIn, setAnimateIn] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -33,10 +36,51 @@ export default function AssignOfficerModal({
       setSelectedOfficer("")
       setPriority("High")
       setRemarks("")
+      fetchOfficers()
     } else {
       setAnimateIn(false)
     }
   }, [open])
+
+  const fetchOfficers = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get('/api/officerinfo/')
+      setOfficers(response.data)
+    } catch (error) {
+      console.error('Error fetching officers:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAssign = async () => {
+    if (!selectedOfficer || !complaint) return
+    
+    try {
+      setSubmitting(true)
+      // Ensure we send a numeric complaint primary key to the API.
+      const complaintId = Number(complaint.id) || parseInt(String(complaint.id).replace(/\D/g, ''), 10)
+
+      await api.post('/api/assign-officer/', {
+        complaint: complaintId,
+        officer: selectedOfficer,
+        priority,
+        remarks,
+      })
+      
+      alert('Officer assigned successfully!')
+      handleClose()
+    } catch (error: any) {
+      // Log full response body when available for easier debugging
+      console.error('Error assigning officer:', error)
+      if (error?.response?.data) console.error('Server response:', error.response.data)
+      const msg = error?.response?.data?.detail || error?.response?.data || error?.message || 'Failed to assign officer'
+      alert(String(msg))
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (!open || !complaint) return null
 
@@ -103,11 +147,12 @@ export default function AssignOfficerModal({
               value={selectedOfficer}
               onChange={(e) => setSelectedOfficer(e.target.value)}
               className="w-full border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20 focus:border-[#3b82f6]"
+              disabled={loading}
             >
-              <option value="">Choose an officer...</option>
+              <option value="">{loading ? 'Loading officers...' : 'Choose an officer...'}</option>
               {officers.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} - {o.role}
+                <option key={o.officer_id} value={o.officer_id}>
+                  {o.name} - {o.email}
                 </option>
               ))}
             </select>
@@ -165,10 +210,11 @@ export default function AssignOfficerModal({
             Cancel
           </button>
           <button
-            disabled={!selectedOfficer}
+            onClick={handleAssign}
+            disabled={!selectedOfficer || submitting}
             className="px-4 py-2 text-sm font-medium text-white bg-[#1e40af] rounded-lg hover:bg-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Assign Officer
+            {submitting ? 'Assigning...' : 'Assign Officer'}
           </button>
         </div>
       </div>

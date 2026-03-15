@@ -21,7 +21,6 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/department" },
   { icon: FileText, label: "Assigned Complaints", path: "/department/assigned" },
   { icon: Users, label: "Officers", path: "/department/officers" },
-  { icon: BellRing, label: "Notifications", path: "/department/notifications" },
   { icon: User, label: "Profile", path: "/department/profile" },
 ]
 

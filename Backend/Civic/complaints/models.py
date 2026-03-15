@@ -1,22 +1,11 @@
+from ast import mod
+from pyexpat import model
 from django.db import models
 # from django.contrib.auth.models import User 
 from django.utils import timezone
+from departments.models import Officer
 class Complaint(models.Model):
-    CHOICE_CATEGORY = [
-        ('ROADS', 'Roads & Infrastructure'),
-        ('TRAFFIC', 'Traffic & Road Safety'),
-        ('WATER', 'Water Supply'),
-        ('SEWERAGE', 'Sewerage & Drainage'),
-        ('SANITATION', 'Sanitation & Garbage'),
-        ('LIGHTING', 'Street Lighting'),
-        ('PARKS', 'Parks & Public Spaces'),
-        ('ANIMALS', 'Stray Animals'),
-        ('ILLEGAL_CONSTRUCTION', 'Illegal Construction'),
-        ('ENCROACHMENT', 'Encroachment'),
-        ('PROPERTY_DAMAGE', 'Public Property Damage'),
-        ('ELECTRICITY', 'Electricity & Power Issues'),
-        ('OTHER', 'Other'),
-    ]
+
     CHOICE_PRIORITY=(
         ('Low','Low'),
         ('Medium','Medium'),
@@ -27,9 +16,10 @@ class Complaint(models.Model):
         ('in-progress','In Progress'),
         ('resolved','Resolved')
         )
-    # user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='complaints')
+    
     title=models.CharField(max_length=100)
-    Category=models.CharField(max_length=50, choices=CHOICE_CATEGORY, default='Other')
+    officer_id=models.ForeignKey(Officer, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_complaints')
+    Category=models.ForeignKey('ComplaintCategory', null=True, blank=True, on_delete=models.SET_NULL, related_name='complaints')
     Description=models.CharField(max_length=300)
     image_video=models.FileField(upload_to='media/', null=True, blank=True)
     location_address=models.CharField(max_length=200)
@@ -38,6 +28,33 @@ class Complaint(models.Model):
     priority_level=models.CharField(max_length=20, choices=CHOICE_PRIORITY, default='Medium')
     status=models.CharField(max_length=20, choices=CHOICE_STATUS, default='Pending')
     current_time=models.DateTimeField(default=timezone.now)
+    is_assignd=models.BooleanField(default=False)
     
     def __str__(self):
         return f"{self.title} - {self.Category}"
+
+class ComplaintAssignment(models.Model):
+    PRIORITY_CHOICES = [
+        ('High', 'High'),
+        ('Medium', 'Medium'),
+        ('Low', 'Low'),
+    ]
+    
+    complaint = models.ForeignKey(Complaint, on_delete=models.CASCADE, related_name='assignments')
+    officer = models.ForeignKey(Officer, on_delete=models.CASCADE, related_name='complaint_assignments')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='Medium')
+    remarks = models.TextField(blank=True)
+    class Meta:
+        unique_together = ['complaint', 'officer']
+    
+    def __str__(self):
+        return f"{self.complaint.title} -> {self.officer.name}"
+
+
+class ComplaintCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=120, unique=True, blank=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name

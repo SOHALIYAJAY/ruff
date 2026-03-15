@@ -43,10 +43,11 @@ INSTALLED_APPS = [
     'complaints',
     'departments',
     'dashboard',
-    'notification',
+    # 'notification',
     'contact_us',
     'rest_framework',
-    'rest_framework_simplejwt.token_blacklist'
+    'rest_framework_simplejwt.token_blacklist',
+    'Categories',
 ]
 
 MIDDLEWARE = [
@@ -96,7 +97,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'civic_db',
         'USER': 'postgres',
-        'PASSWORD': 'Yug@5599',
+        'PASSWORD': 'civic@system',
         'HOST': 'localhost',
         'PORT': '5432',
     }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import api from '@/lib/axios'
 import { X, FileText } from "lucide-react"
 import type { Officer } from "./officers-table"
 
@@ -10,12 +11,12 @@ interface AssignComplaintModalProps {
   onClose: () => void
 }
 
-const unassignedComplaints = [
-  { id: "PWD-1006", title: "Bridge railing missing section", priority: "Critical", district: "Bhavnagar" },
-  { id: "PWD-1012", title: "Water pipe leak flooding road", priority: "Critical", district: "Gandhinagar" },
-  { id: "PWD-1015", title: "Manhole cover missing on main road", priority: "High", district: "Ahmedabad" },
-  { id: "PWD-1018", title: "Cracked wall on government building", priority: "Medium", district: "Surat" },
-]
+// const unassignedComplaints = [
+//   { id: "PWD-1006", title: "Bridge railing missing section", priority: "Critical", district: "Bhavnagar" },
+//   { id: "PWD-1012", title: "Water pipe leak flooding road", priority: "Critical", district: "Gandhinagar" },
+//   { id: "PWD-1015", title: "Manhole cover missing on main road", priority: "High", district: "Ahmedabad" },
+//   { id: "PWD-1018", title: "Cracked wall on government building", priority: "Medium", district: "Surat" },
+// ]
 
 const priorityColors: Record<string, string> = {
   Critical: "bg-red-50 text-[#dc2626] border-red-200",
@@ -27,6 +28,34 @@ const priorityColors: Record<string, string> = {
 export default function AssignComplaintToOfficerModal({ officer, open, onClose }: AssignComplaintModalProps) {
   const [selectedComplaint, setSelectedComplaint] = useState<string | null>(null)
   const [remarks, setRemarks] = useState("")
+  const [unassignedComplaints, setUnassignedComplaints] = useState<Array<{id:string,title:string,priority:string,district:string}>>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    let mounted = true
+    const fetch = async () => {
+      setLoading(true)
+      try {
+        const res = await api.get('/api/getcomplaint/')
+        // expect array of complaints; filter those not assigned
+        const data = Array.isArray(res.data) ? res.data : []
+        const unassigned = data.filter((c: any) => !c.is_assignd).map((c: any) => ({
+          id: `CVT-${c.id}`,
+          title: c.title || 'Untitled',
+          priority: c.priority_level || 'Medium',
+          district: c.location_District || ''
+        }))
+        if (mounted) setUnassignedComplaints(unassigned)
+      } catch (err) {
+        console.error('Failed to load complaints', err)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    fetch()
+    return () => { mounted = false }
+  }, [open])
 
   if (!open) return null
 
@@ -62,7 +91,11 @@ export default function AssignComplaintToOfficerModal({ officer, open, onClose }
           <div>
             <label className="text-sm font-semibold text-slate-700 mb-2 block">Select Complaint</label>
             <div className="space-y-2">
-              {unassignedComplaints.map((c) => (
+              {loading && <div className="text-sm text-slate-500">Loading complaints...</div>}
+              {!loading && unassignedComplaints.length === 0 && (
+                <div className="text-sm text-slate-500">No unassigned complaints available.</div>
+              )}
+              {!loading && unassignedComplaints.map((c) => (
                 <label
                   key={c.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${

@@ -12,7 +12,7 @@ const officerWorkload = [
 
 export default function AssignedAnalyticsSidebar() {
   return (
-    <div className="space-y-4">
+    <>
       {/* Officer Workload */}
       <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-4">
         <div className="flex items-center gap-2 mb-4">
@@ -83,6 +83,6 @@ export default function AssignedAnalyticsSidebar() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

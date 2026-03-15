@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import api from '@/lib/axios'
 import {
   FileText,
   Clock,
@@ -51,73 +52,87 @@ function AnimatedValue({ target }: { target: string }) {
   return <span>{display}</span>
 }
 
-const stats: StatCard[] = [
-  {
-    label: "Total Assigned",
-    value: "1,248",
-    trend: "+8.2%",
-    trendUp: true,
-    icon: <FileText className="w-5 h-5" />,
-    borderColor: "border-t-[#1e40af]",
-    iconBg: "bg-blue-50",
-    iconColor: "text-[#1e40af]",
-  },
-  {
-    label: "Pending",
-    value: "186",
-    trend: "-3.1%",
-    trendUp: false,
-    icon: <Clock className="w-5 h-5" />,
-    borderColor: "border-t-[#f59e0b]",
-    iconBg: "bg-amber-50",
-    iconColor: "text-[#f59e0b]",
-  },
-  {
-    label: "In Progress",
-    value: "342",
-    trend: "+5.4%",
-    trendUp: true,
-    icon: <Loader2 className="w-5 h-5" />,
-    borderColor: "border-t-[#3b82f6]",
-    iconBg: "bg-sky-50",
-    iconColor: "text-[#3b82f6]",
-  },
-  {
-    label: "Resolved",
-    value: "674",
-    trend: "+12.7%",
-    trendUp: true,
-    icon: <CheckCircle2 className="w-5 h-5" />,
-    borderColor: "border-t-[#16a34a]",
-    iconBg: "bg-green-50",
-    iconColor: "text-[#16a34a]",
-  },
-  {
-    label: "SLA Breach",
-    value: "46",
-    trend: "+2.1%",
-    trendUp: true,
-    icon: <AlertTriangle className="w-5 h-5" />,
-    borderColor: "border-t-[#dc2626]",
-    iconBg: "bg-red-50",
-    iconColor: "text-[#dc2626]",
-  },
-  {
-    label: "Urgent Cases",
-    value: "28",
-    trend: "+4.5%",
-    trendUp: true,
-    icon: <Flame className="w-5 h-5" />,
-    borderColor: "border-t-[#7c3aed]",
-    iconBg: "bg-violet-50",
-    iconColor: "text-[#7c3aed]",
-  },
-]
 
 export default function AssignedComplaintsStats() {
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    resolved: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/api/getcomplaint/')
+      const complaints = response.data
+      
+      setStats({
+        total: complaints.length,
+        pending: complaints.filter((c: any) => c.status === 'Pending').length,
+        inProgress: complaints.filter((c: any) => c.status === 'in-progress').length,
+        resolved: complaints.filter((c: any) => c.status === 'resolved').length
+      })
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const statCards = [
+    {
+      label: "Total Assigned",
+      value: stats.total.toString(),
+      icon: <FileText className="w-5 h-5" />,
+      borderColor: "border-t-[#1e40af]",
+      iconBg: "bg-blue-50",
+      iconColor: "text-[#1e40af]",
+    },
+    {
+      label: "Pending",
+      value: stats.pending.toString(),
+      icon: <Clock className="w-5 h-5" />,
+      borderColor: "border-t-[#f59e0b]",
+      iconBg: "bg-amber-50",
+      iconColor: "text-[#f59e0b]",
+    },
+    {
+      label: "In Progress",
+      value: stats.inProgress.toString(),
+      icon: <Loader2 className="w-5 h-5" />,
+      borderColor: "border-t-[#3b82f6]",
+      iconBg: "bg-sky-50",
+      iconColor: "text-[#3b82f6]",
+    },
+    {
+      label: "Resolved",
+      value: stats.resolved.toString(),
+      icon: <CheckCircle2 className="w-5 h-5" />,
+      borderColor: "border-t-[#16a34a]",
+      iconBg: "bg-green-50",
+      iconColor: "text-[#16a34a]",
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-4 animate-pulse">
+            <div className="h-20"></div>
+          </div>
+        ))}
+      </div>
+    )
+  }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-      {stats.map((card, i) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {statCards.map((card, i) => (
         <div
           key={i}
           className={`bg-white rounded-lg border border-[#e2e8f0] border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4`}
@@ -125,18 +140,6 @@ export default function AssignedComplaintsStats() {
           <div className="flex items-center justify-between mb-3">
             <div className={`${card.iconBg} ${card.iconColor} p-2 rounded-lg`}>
               {card.icon}
-            </div>
-            <div
-              className={`flex items-center gap-1 text-xs font-semibold ${
-                card.trendUp ? "text-[#16a34a]" : "text-[#dc2626]"
-              }`}
-            >
-              {card.trendUp ? (
-                <TrendingUp className="w-3.5 h-3.5" />
-              ) : (
-                <TrendingDown className="w-3.5 h-3.5" />
-              )}
-              {card.trend}
             </div>
           </div>
           <p className="text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1">

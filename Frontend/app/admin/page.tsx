@@ -1,12 +1,72 @@
 'use client'
 
-import { useState } from 'react'
- import { Eye, Filter, Download, TrendingUp, TrendingDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Eye, Filter, Download, TrendingUp, TrendingDown, AlertTriangle, Clock, CheckCircle, Users, Building2, BarChart3, RefreshCw } from 'lucide-react'
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { getDashboardKPIs, refreshDashboardData, DashboardKPI, BackendDashboardResponse } from '../../services/dashboardService'
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview')
+  const [selectedMetric, setSelectedMetric] = useState('all')
+  const [statsCards, setStatsCards] = useState<DashboardKPI[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const statsCards = [
+  // Fetch KPI data from backend
+  const fetchKPIs = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log('🔄 Fetching dashboard KPIs from backend...')
+      console.log('📡 API URL: http://localhost:8000/api/admindashboardcard/')
+      
+      const data = await getDashboardKPIs()
+      console.log('✅ Received KPI data:', data)
+      console.log('📊 KPI Cards count:', data.length)
+      
+      setStatsCards(data)
+      
+      // Log each KPI card details
+      data.forEach((kpi, index) => {
+        console.log(`📈 KPI ${index + 1}: ${kpi.title} = ${kpi.value}`)
+      })
+      
+    } catch (err: any) {
+      console.error('❌ Dashboard data fetch error:', err)
+      console.error('🔍 Error details:', err.response?.data || err.message)
+      setError('Failed to fetch dashboard data from backend')
+      // Use fallback data when backend fails
+      console.log('⚠️ Using fallback data due to API error')
+    } finally {
+      setLoading(false)
+      console.log('🏁 Fetch completed. Loading state:', false)
+    }
+  }
+
+  // Refresh dashboard data
+  const handleRefresh = async () => {
+    try {
+      setRefreshing(true)
+      setError(null)
+      console.log('Refreshing dashboard data...')
+      const data = await refreshDashboardData()
+      console.log('Refreshed KPI data:', data.kpis)
+      setStatsCards(data.kpis)
+    } catch (err) {
+      console.error('Dashboard refresh error:', err)
+      setError('Failed to refresh dashboard data')
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchKPIs()
+  }, [])
+
+  // Fallback mock data for the first 4 KPI cards if API fails
+  const fallbackKPIs: DashboardKPI[] = [
     { 
       title: 'Total Complaints', 
       value: '2,847', 
@@ -47,27 +107,11 @@ export default function AdminDashboard() {
       borderColor: 'border-green-500',
       textColor: 'text-green-700'
     },
-    { 
-      title: 'Escalated', 
-      value: '45', 
-      trend: '+3%', 
-      trendUp: true,
-      badge: 'Urgent',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-500',
-      textColor: 'text-red-700'
-    },
-    { 
-      title: 'SLA Compliance', 
-      value: '94.2%', 
-      trend: '+1.2%', 
-      trendUp: true,
-      badge: 'Target: 95%',
-      bgColor: 'bg-indigo-50',
-      borderColor: 'border-indigo-500',
-      textColor: 'text-indigo-700'
-    },
   ]
+
+  // Use fetched data or fallback data
+  const displayKPIs = statsCards.length > 0 ? statsCards.slice(0, 4) : fallbackKPIs
+  const isUsingBackendData = statsCards.length > 0
 
   const complaints = [
     { id: 'CMP001', title: 'Pothole on Main Street', category: 'Road', district: 'Ahmedabad', department: 'Public Works', officer: 'Rajesh Kumar', priority: 'High', status: 'In Progress', date: '2024-02-15' },
@@ -82,6 +126,37 @@ export default function AdminDashboard() {
     { name: 'Water Authority', resolution: 91, complaints: 380, color: 'bg-cyan-500' },
     { name: 'Electricity Board', resolution: 88, complaints: 420, color: 'bg-amber-500' },
     { name: 'Municipal Corp', resolution: 85, complaints: 290, color: 'bg-emerald-500' },
+  ]
+
+  // Chart data
+  const monthlyTrendData = [
+    { month: 'Jan', complaints: 245, resolved: 210, escalated: 15 },
+    { month: 'Feb', complaints: 318, resolved: 280, escalated: 18 },
+    { month: 'Mar', complaints: 412, resolved: 380, escalated: 22 },
+    { month: 'Apr', complaints: 389, resolved: 350, escalated: 19 },
+    { month: 'May', complaints: 456, resolved: 420, escalated: 25 },
+    { month: 'Jun', complaints: 512, resolved: 480, escalated: 28 },
+  ]
+
+  const districtData = [
+    { name: 'Ahmedabad', complaints: 456 },
+    { name: 'Vadodara', complaints: 312 },
+    { name: 'Surat', complaints: 389 },
+    { name: 'Rajkot', complaints: 267 },
+    { name: 'Gandhinagar', complaints: 198 },
+  ]
+
+  const complaintStatusData = [
+    { name: 'Open', value: 324, color: '#f97316' },
+    { name: 'In Progress', value: 581, color: '#8b5cf6' },
+    { name: 'Resolved', value: 1942, color: '#16a34a' },
+    { name: 'Escalated', value: 45, color: '#dc2626' },
+  ]
+
+  const escalatedComplaints = [
+    { id: 'ESC-001', title: 'Critical Water Supply Failure', district: 'Ahmedabad', daysOpen: 8, slaViolated: true },
+    { id: 'ESC-002', title: 'Road Collapse Risk', district: 'Surat', daysOpen: 6, slaViolated: true },
+    { id: 'ESC-003', title: 'Power Outage - Hospital Area', district: 'Vadodara', daysOpen: 5, slaViolated: false },
   ]
 
   const getStatusColor = (status: string) => {
@@ -105,26 +180,68 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
       {/* Page Header */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard Overview</h1>
-        <p className="text-sm text-slate-500 mt-1">Real-time civic complaint monitoring and analytics</p>
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-900">Gujarat CivicTrack</h1>
+            <p className="text-sm text-blue-700 mt-1">Smart City Governance & Civic Complaint Portal</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-blue-600 font-medium">Real-time Monitoring</p>
+            <p className="text-xs text-blue-500">Last updated: Today at 2:45 PM</p>
+          </div>
+        </div>
       </div>
 
       {/* KPI Section */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">Key Performance Indicators</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {statsCards.map((card, idx) => (
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-slate-800">Key Performance Indicators</h2>
+            <div className={`px-2 py-1 rounded text-xs font-medium ${
+              isUsingBackendData 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-orange-100 text-orange-700'
+            }`}>
+              {isUsingBackendData ? '🟢 Live Data' : '🟠 Demo Data'}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {loading && !refreshing && (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-blue-600">Loading...</span>
+              </div>
+            )}
+            {error && (
+              <span className="text-sm text-red-600">⚠️ {error}</span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={loading || refreshing}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                refreshing 
+                  ? 'bg-blue-100 text-blue-700 cursor-not-allowed' 
+                  : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-200'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {displayKPIs.map((card, idx) => (
             <div
               key={idx}
-              className={`bg-white rounded-lg border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-5`}
+              className={`bg-white rounded-lg border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-5 ${(loading || refreshing) ? 'animate-pulse' : ''}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{card.title}</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{card.value}</p>
+                  <p className="text-3xl font-bold text-slate-800 mt-2">{(loading || refreshing) ? '...' : card.value}</p>
                 </div>
                 <div className={`${card.bgColor} ${card.textColor} px-2 py-1 rounded text-xs font-semibold`}>
                   {card.badge}
@@ -205,6 +322,28 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* Analytics Section: Removed Monthly and District charts per request; keeping status distribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+        {/* Complaint Status Pie Chart */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-slate-800 mb-4">Complaint Status Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={complaintStatusData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={100}>
+                {complaintStatusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* District-wise chart removed per request */}
+
+      {/* SLA Breach Monitor removed per request */}
+
       {/* Tabs Section */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
         <div className="flex gap-2 border-b border-slate-200 p-2">
@@ -218,119 +357,66 @@ export default function AdminDashboard() {
           >
             Overview
           </button>
-          <button
-            onClick={() => setSelectedTab('complaints')}
-            className={`px-6 py-3 font-medium text-sm rounded-lg transition-colors ${
-              selectedTab === 'complaints'
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            All Complaints
-          </button>
-          <button
-            onClick={() => setSelectedTab('departments')}
-            className={`px-6 py-3 font-medium text-sm rounded-lg transition-colors ${
-              selectedTab === 'departments'
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Department Stats
-          </button>
+          {/* Removed "All Complaints" and "Department Stats" tabs per request */}
         </div>
-        {/* Tab Content */}
-        {selectedTab === 'complaints' && (
-          <div>
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-200 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-800">All Complaints</h3>
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm">
-                    <Filter className="w-4 h-4" />
-                    Filter
-                  </button>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                    <Download className="w-4 h-4" />
-                    Export
-                  </button>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50">
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">ID</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Title</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">District</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Department</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Officer</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Priority</th>
-                      <th className="px-6 py-3 text-left font-semibold text-slate-700">Status</th>
-                      <th className="px-6 py-3 text-center font-semibold text-slate-700">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {complaints.map((complaint) => (
-                      <tr key={complaint.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-blue-700 font-semibold">{complaint.id}</td>
-                        <td className="px-6 py-4 text-slate-900">{complaint.title}</td>
-                        <td className="px-6 py-4 text-slate-600">{complaint.district}</td>
-                        <td className="px-6 py-4 text-slate-600">{complaint.department}</td>
-                        <td className="px-6 py-4 text-slate-600">{complaint.officer}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-sm font-semibold ${getPriorityColor(complaint.priority)}`}>
-                            {complaint.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`text-xs px-3 py-1 rounded-full border font-semibold ${getStatusColor(complaint.status)}`}>
-                            {complaint.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* DEPARTMENTS SECTION */}
-        {selectedTab === 'departments' && (
-          <div className="p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-800">Department Performance</h3>
-            {departments.map((dept, idx) => (
-              <div key={idx} className="bg-slate-50 rounded-lg border border-slate-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="font-semibold text-slate-900">{dept.name}</p>
-                    <p className="text-sm text-slate-500">{dept.complaints} complaints</p>
-                  </div>
-                  <span className="text-2xl font-bold text-blue-600">{dept.resolution}%</span>
-                </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`${dept.color} h-full rounded-full transition-all`}
-                    style={{ width: `${dept.resolution}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Only Overview tab remains; other tabs removed per request */}
 
         {/* OVERVIEW SECTION */}
         {selectedTab === 'overview' && (
-          <div className="p-12 text-center">
-            <p className="text-slate-500">Overview section - Performance metrics and system health</p>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <span className="text-xs font-semibold text-blue-600">Current</span>
+                </div>
+                <p className="text-xs text-blue-600 uppercase tracking-wide mb-1">Average Response Time</p>
+                <p className="text-3xl font-bold text-blue-900">2.4 hrs</p>
+                <p className="text-xs text-blue-600 mt-2">↓ 15% from last month</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-xs font-semibold text-green-600">On Track</span>
+                </div>
+                <p className="text-xs text-green-600 uppercase tracking-wide mb-1">SLA Compliance Rate</p>
+                <p className="text-3xl font-bold text-green-900">94.2%</p>
+                <p className="text-xs text-green-600 mt-2">Target: 95%</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <Users className="w-5 h-5 text-purple-600" />
+                  <span className="text-xs font-semibold text-purple-600">Active</span>
+                </div>
+                <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Active Officers Online</p>
+                <p className="text-3xl font-bold text-purple-900">47/52</p>
+                <p className="text-xs text-purple-600 mt-2">90% availability</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-lg border border-slate-200 p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-4">System Health</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">API Uptime</p>
+                  <p className="text-2xl font-bold text-slate-800">99.9%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Avg Response</p>
+                  <p className="text-2xl font-bold text-slate-800">234ms</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Database Latency</p>
+                  <p className="text-2xl font-bold text-slate-800">45ms</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Active Users</p>
+                  <p className="text-2xl font-bold text-slate-800">1,247</p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
