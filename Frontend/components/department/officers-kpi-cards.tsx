@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import {
   Users,
   UserCheck,
-  FileText,
+  UserX,
+  Zap,
   Clock,
   ShieldCheck,
   AlertTriangle,
@@ -74,7 +75,7 @@ export default function OfficersKpiCards() {
         setKpiData([
           {
             label: "Total Officers",
-            value: data.total_officers.toString(),
+            value: data.total_officers?.toString() || "0",
             trendUp: true,
             icon: <Users className="w-5 h-5" />,
             borderColor: "border-t-[#1e40af]",
@@ -83,7 +84,7 @@ export default function OfficersKpiCards() {
           },
           {
             label: "Active Officers",
-            value: data.active_officers.toString(),
+            value: data.active_officers?.toString() || "0",
             trendUp: true,
             icon: <UserCheck className="w-5 h-5" />,
             borderColor: "border-t-[#16a34a]",
@@ -91,32 +92,42 @@ export default function OfficersKpiCards() {
             iconColor: "text-[#16a34a]",
           },
           {
-            label: "Total Assigned",
-            value: data.total_assigned.toString(),
+            label: "Inactive Officers",
+            value: data.inactive_officers?.toString() || "0",
+            trendUp: false,
+            icon: <UserX className="w-5 h-5" />,
+            borderColor: "border-t-[#f59e0b]",
+            iconBg: "bg-amber-50",
+            iconColor: "text-[#f59e0b]",
+          },
+          {
+            label: "High Workload",
+            value: data.high_workload_officers?.toString() || "0",
+            trendUp: false,
+            icon: <Zap className="w-5 h-5" />,
+            borderColor: "border-t-[#dc2626]",
+            iconBg: "bg-red-50",
+            iconColor: "text-[#dc2626]",
+          },
+          {
+            label: "Avg Resolution",
+            value: data.avg_resolution_rate?.toString() || "0",
             trendUp: true,
-            icon: <FileText className="w-5 h-5" />,
+            icon: <Clock className="w-5 h-5" />,
             borderColor: "border-t-[#3b82f6]",
             iconBg: "bg-sky-50",
             iconColor: "text-[#3b82f6]",
+            suffix: "%",
           },
           {
             label: "SLA Compliance",
-            value: data.sla_compliance.toString(),
+            value: data.sla_compliance?.toString() || "0",
             trendUp: true,
             icon: <ShieldCheck className="w-5 h-5" />,
             borderColor: "border-t-[#7c3aed]",
             iconBg: "bg-violet-50",
             iconColor: "text-[#7c3aed]",
             suffix: "%",
-          },
-          {
-            label: "Overloaded",
-            value: data.overloaded.toString(),
-            trendUp: true,
-            icon: <AlertTriangle className="w-5 h-5" />,
-            borderColor: "border-t-[#dc2626]",
-            iconBg: "bg-red-50",
-            iconColor: "text-[#dc2626]",
           },
         ])
       } catch (e) {
@@ -131,11 +142,12 @@ export default function OfficersKpiCards() {
   if (loading) return <div>Loading KPI cards...</div>
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 animate-in fade-in duration-500">
       {kpiData.map((card, i) => (
         <div
           key={i}
-          className={`bg-white rounded-lg border border-[#e2e8f0] border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-4`}
+          className={`bg-white rounded-lg border border-[#e2e8f0] border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-4 animate-in fade-in slide-in-from-bottom-2 duration-500`}
+          style={{animationDelay: `${i * 50}ms`}}
         >
           <div className="flex items-center justify-between mb-3">
             <div className={`${card.iconBg} ${card.iconColor} p-2 rounded-lg`}>

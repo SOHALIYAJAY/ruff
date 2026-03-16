@@ -8,14 +8,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  FileText,
-  MessageSquare,
-  UserPlus,
+  Edit2,
   Power,
+  Trash2,
   SortAsc,
   SortDesc,
 } from "lucide-react"
 import api from '@/lib/axios'
+import OfficerWorkloadIndicator from "./officer-workload-indicator"
 
 export interface Officer {
   officer_id: string
@@ -23,6 +23,11 @@ export interface Officer {
   email: string
   phone: string
   is_available: boolean
+  department?: string
+  dept_name?: string
+  joined_date?: string
+  assigned_complaints?: number
+  complaint_capacity?: number
 }
 
 type SortKey = "name"
@@ -38,6 +43,7 @@ export default function OfficersTable({
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
+  const [departmentFilter, setDepartmentFilter] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("name")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
   const [page, setPage] = useState(1)
@@ -68,6 +74,15 @@ export default function OfficersTable({
     }
   }
 
+  const departments = useMemo(() => {
+    const depts = new Set<string>()
+    officers.forEach(o => {
+      const dept = o.department || o.dept_name
+      if (dept) depts.add(String(dept))
+    })
+    return Array.from(depts).sort()
+  }, [officers])
+
   const filtered = useMemo(() => {
     let result = officers.filter((o) => {
       const matchesSearch =
@@ -76,7 +91,9 @@ export default function OfficersTable({
       const matchesStatus = statusFilter === "All" || 
         (statusFilter === "Available" && o.is_available) ||
         (statusFilter === "Unavailable" && !o.is_available)
-      return matchesSearch && matchesStatus
+      const matchesDept = !departmentFilter || 
+        (o.department === departmentFilter || o.dept_name === departmentFilter)
+      return matchesSearch && matchesStatus && matchesDept
     })
 
     result.sort((a, b) => {
@@ -86,7 +103,7 @@ export default function OfficersTable({
     })
 
     return result
-  }, [officers, search, statusFilter, sortKey, sortDir])
+  }, [officers, search, statusFilter, departmentFilter, sortKey, sortDir])
 
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -127,18 +144,31 @@ export default function OfficersTable({
           </div>
 
           {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+            className="text-sm border border-[#e2e8f0] rounded-lg px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20"
+          >
+            <option value="All">All Status</option>
+            <option value="Available">Available</option>
+            <option value="Unavailable">Unavailable</option>
+          </select>
+
+          {/* Department filter */}
+          {departments.length > 0 && (
             <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+              value={departmentFilter}
+              onChange={(e) => { setDepartmentFilter(e.target.value); setPage(1) }}
               className="text-sm border border-[#e2e8f0] rounded-lg px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20"
             >
-              <option value="All">All Status</option>
-              <option value="Available">Available</option>
-              <option value="Unavailable">Unavailable</option>
+              <option value="">All Departments</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
             </select>
-          </div>
+          )}
 
           {/* Sort options */}
           <button
@@ -160,10 +190,10 @@ export default function OfficersTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#e2e8f0] bg-[#f1f5f9]">
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">ID</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Officer</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Department</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Email</th>
-              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Phone</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Workload</th>
               <th className="px-4 py-3 text-left font-semibold text-slate-600 text-xs uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-center font-semibold text-slate-600 text-xs uppercase tracking-wider">Actions</th>
             </tr>
@@ -184,30 +214,53 @@ export default function OfficersTable({
             ) : (
               paginated.map((o) => (
                 <tr key={o.officer_id} className="hover:bg-blue-50/40 transition-colors">
-                  <td className="px-4 py-3.5 font-mono text-[#1e40af] font-semibold text-xs">{o.officer_id}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 bg-[#1e40af]">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs flex-shrink-0 bg-[#1e40af]">
                         {o.name.split(' ').map(n => n[0]).join('')}
                       </div>
-                      <span className="font-medium text-slate-800 whitespace-nowrap">{o.name}</span>
+                      <div>
+                        <span className="font-medium text-slate-800 whitespace-nowrap block">{o.name}</span>
+                        <span className="text-xs text-slate-500 font-mono">{o.officer_id}</span>
+                      </div>
                     </div>
                   </td>
+                  <td className="px-4 py-3.5 text-sm text-slate-600">
+                    {o.department || o.dept_name || "—"}
+                  </td>
                   <td className="px-4 py-3.5 text-slate-500 text-xs">{o.email}</td>
-                  <td className="px-4 py-3.5 text-slate-500 text-xs">{o.phone}</td>
+                  <td className="px-4 py-3.5 text-sm w-32">
+                    {o.assigned_complaints !== undefined && o.complaint_capacity !== undefined ? (
+                      <OfficerWorkloadIndicator
+                        assigned={o.assigned_complaints}
+                        capacity={o.complaint_capacity}
+                        showLabel={true}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3.5">
                     <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${
                       o.is_available ? "bg-green-100 text-[#16a34a] border-green-200" : "bg-slate-100 text-slate-500 border-slate-200"
                     }`}>
-                      {o.is_available ? 'Available' : 'Unavailable'}
+                      {o.is_available ? 'Active' : 'Inactive'}
                     </span>
                   </td>
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center justify-center gap-0.5">
-                      <button title="View Profile" onClick={() => onViewProfile(o.officer_id)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <button title="View Profile" onClick={() => onViewProfile(o.officer_id)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors" aria-label="View profile">
                         <Eye className="w-4 h-4" />
                       </button>
-                      {/* Assign action removed per request */}
+                      <button title="Edit Officer" className="p-1.5 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors" aria-label="Edit officer">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button title="Toggle Status" className="p-1.5 text-[#f59e0b] hover:bg-amber-50 rounded transition-colors" aria-label="Toggle officer status">
+                        <Power className="w-4 h-4" />
+                      </button>
+                      <button title="Remove Officer" className="p-1.5 text-[#dc2626] hover:bg-red-50 rounded transition-colors" aria-label="Remove officer">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
