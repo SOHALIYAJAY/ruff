@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { ChevronRight, LayoutDashboard, Users, UserPlus, BarChart3 } from "lucide-react"
 import OfficersKpiCards from "@/components/department/officers-kpi-cards"
 import OfficersTable from "@/components/department/officers-table"
@@ -44,12 +45,19 @@ export default function OfficersPage() {
             <BarChart3 className="w-4 h-4" />
             {showAnalytics ? "Hide Analytics" : "Show Analytics"}
           </button>
-          <button
-            onClick={() => setShowAddOfficer(true)}
+          <Link
+            href="/department/officers/create"
             className="flex items-center gap-2 px-4 py-2 bg-[#1e40af] text-white rounded-lg hover:bg-[#1e3a8a] transition-colors font-medium text-sm"
           >
             <UserPlus className="w-4 h-4" />
-            Add New Officer
+            Create Officer
+          </Link>
+          <button
+            onClick={() => setShowAddOfficer(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#7c3aed] text-white rounded-lg hover:bg-[#6d28d9] transition-colors font-medium text-sm"
+          >
+            <UserPlus className="w-4 h-4" />
+            Quick Add
           </button>
         </div>
       </div>
