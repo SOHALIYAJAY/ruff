@@ -60,7 +60,7 @@ function AnimatedValue({ target, suffix }: { target: string; suffix?: string }) 
   )
 }
 
-import axios from "@/lib/axios"
+import api from "@/lib/axios"
 
 export default function OfficersKpiCards() {
   const [kpiData, setKpiData] = useState<KpiCard[]>([])
@@ -70,8 +70,7 @@ export default function OfficersKpiCards() {
     async function fetchKpi() {
       setLoading(true)
       try {
-        const res = await axios.get("/api/officer-kpi/")
-        const data = res.data
+        const { data } = await api.get("/api/officer-kpi/")
         setKpiData([
           {
             label: "Total Officers",

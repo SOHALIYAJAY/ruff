@@ -57,8 +57,8 @@ export default function DepartmentsSection() {
 
   const fetchDepartments = async () => {
     try {
-      const response = await api.get("/api/deptinfo/")
-      setDepartments(response.data)
+      const { data } = await api.get<Department[]>("/api/deptinfo/")
+      setDepartments(data)
     } catch (error) {
       console.error('Error fetching departments:', error)
     } finally {

@@ -22,8 +22,7 @@ export default function DepartmentDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await api.get('/api/getcomplaint/')
-      const complaints = response.data
+      const { data: complaints } = await api.get('/api/getcomplaint/')
       
       setStats({
         total: complaints.length,

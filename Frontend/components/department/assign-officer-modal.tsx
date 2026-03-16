@@ -45,8 +45,8 @@ export default function AssignOfficerModal({
   const fetchOfficers = async () => {
     try {
       setLoading(true)
-      const response = await api.get('/api/officerinfo/')
-      setOfficers(response.data)
+      const { data } = await api.get<Officer[]>('/api/officerinfo/')
+      setOfficers(data)
     } catch (error) {
       console.error('Error fetching officers:', error)
     } finally {

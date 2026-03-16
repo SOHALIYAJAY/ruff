@@ -110,9 +110,9 @@ export default function AssignedComplaintsTable({
 
   const fetchComplaints = async () => {
     try {
-      const response = await api.get("/api/getcomplaint/")
-      console.debug('API /api/getcomplaint/ response:', response.data)
-      setComplaints(response.data)
+      const { data } = await api.get("/api/getcomplaint/")
+      console.debug('API /api/getcomplaint/ response:', data)
+      setComplaints(data)
     } catch (error) {
       console.error('Error fetching complaints:', error)
     } finally {
@@ -122,12 +122,12 @@ export default function AssignedComplaintsTable({
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get('/api/categories/')
-      console.debug('API /api/categories/ response:', res.data)
-      if (Array.isArray(res.data)) {
+      const { data } = await api.get('/api/categories/')
+      console.debug('API /api/categories/ response:', data)
+      if (Array.isArray(data)) {
           const map: Record<string | number, string> = {}
           const codesSet = new Set<string>()
-          res.data.forEach((c: any) => {
+          data.forEach((c: any) => {
             // support lookup by id, name, and code (case-insensitive)
             const codeVal = c.code ?? c.name ?? (c.id != null ? String(c.id) : undefined)
             if (c.id != null && c.code != null) map[c.id] = c.code

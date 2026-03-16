@@ -21,8 +21,7 @@ export interface BackendDashboardResponse {
 
 export const getDashboardKPIs = async (): Promise<DashboardKPI[]> => {
   try {
-    const response = await api.get('/api/admindashboardcard/')
-    const data: BackendDashboardResponse = response.data
+    const { data } = await api.get<BackendDashboardResponse>('/api/admindashboardcard/')
     
     // Transform backend data to frontend KPI format
     const kpis: DashboardKPI[] = [
@@ -77,8 +76,8 @@ export const getDashboardKPIs = async (): Promise<DashboardKPI[]> => {
 
 export const getDashboardStats = async (): Promise<BackendDashboardResponse> => {
   try {
-    const response = await api.get('/api/admindashboardcard/')
-    return response.data
+    const { data } = await api.get<BackendDashboardResponse>('/api/admindashboardcard/')
+    return data
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
     throw error
@@ -87,8 +86,8 @@ export const getDashboardStats = async (): Promise<BackendDashboardResponse> => 
 
 export const getRecentComplaints = async () => {
   try {
-    const response = await api.get('/api/admin/dashboard/recent-complaints/')
-    return response.data
+    const { data } = await api.get('/api/admin/dashboard/recent-complaints/')
+    return data
   } catch (error) {
     console.error('Error fetching recent complaints:', error)
     throw error
@@ -97,8 +96,8 @@ export const getRecentComplaints = async () => {
 
 export const getDepartmentPerformance = async () => {
   try {
-    const response = await api.get('/api/admin/dashboard/department-performance/')
-    return response.data
+    const { data } = await api.get('/api/admin/dashboard/department-performance/')
+    return data
   } catch (error) {
     console.error('Error fetching department performance:', error)
     throw error
@@ -107,8 +106,8 @@ export const getDepartmentPerformance = async () => {
 
 export const getMonthlyTrendData = async () => {
   try {
-    const response = await api.get('/api/admin/dashboard/monthly-trends/')
-    return response.data
+    const { data } = await api.get('/api/admin/dashboard/monthly-trends/')
+    return data
   } catch (error) {
     console.error('Error fetching monthly trends:', error)
     throw error
@@ -117,8 +116,8 @@ export const getMonthlyTrendData = async () => {
 
 export const getDistrictData = async () => {
   try {
-    const response = await api.get('/api/admin/dashboard/district-data/')
-    return response.data
+    const { data } = await api.get('/api/admin/dashboard/district-data/')
+    return data
   } catch (error) {
     console.error('Error fetching district data:', error)
     throw error

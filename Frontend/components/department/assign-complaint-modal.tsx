@@ -37,10 +37,10 @@ export default function AssignComplaintToOfficerModal({ officer, open, onClose }
     const fetch = async () => {
       setLoading(true)
       try {
-        const res = await api.get('/api/getcomplaint/')
+        const { data } = await api.get('/api/getcomplaint/')
         // expect array of complaints; filter those not assigned
-        const data = Array.isArray(res.data) ? res.data : []
-        const unassigned = data.filter((c: any) => !c.is_assignd).map((c: any) => ({
+        const complaints = Array.isArray(data) ? data : []
+        const unassigned = complaints.filter((c: any) => !c.is_assignd).map((c: any) => ({
           id: `CVT-${c.id}`,
           title: c.title || 'Untitled',
           priority: c.priority_level || 'Medium',
