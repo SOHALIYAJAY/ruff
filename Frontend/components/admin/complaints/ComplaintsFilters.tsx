@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Filter } from 'lucide-react'
 
 interface ComplaintsFiltersProps {
@@ -12,7 +12,6 @@ interface ComplaintsFiltersProps {
   setSelectedStatus: (status: string) => void
   selectedPriority: string
   setSelectedPriority: (priority: string) => void
-  departments: Array<{ id: number; name: string }>
 }
 
 export default function ComplaintsFilters({
@@ -24,8 +23,48 @@ export default function ComplaintsFilters({
   setSelectedStatus,
   selectedPriority,
   setSelectedPriority,
-  departments
 }: ComplaintsFiltersProps) {
+  const [categories, setCategories] = useState<Array<any>>([])
+  const [loading, setLoading] = useState(false)
+
+  const API_BASE = (() => {
+    const env = (process.env.NEXT_PUBLIC_API_URL as string) || ''
+    if (env) return env
+    if (typeof window !== 'undefined') return `${window.location.protocol}//${window.location.hostname}:8000`
+    return 'http://127.0.0.1:8000'
+  })()
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    fetch(`${API_BASE}/api/categorieslist/`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to fetch categories')
+        return r.json()
+      })
+      .then((data) => {
+        if (!mounted) return
+        setCategories(Array.isArray(data) ? data : [])
+      })
+      .catch((error) => {
+        console.error('Failed to fetch categories:', error)
+        // Fall back to hardcoded categories
+        setCategories([
+          { id: 1, name: 'Water Supply', code: 'WS' },
+          { id: 2, name: 'Roads & Infrastructure', code: 'RI' },
+          { id: 3, name: 'Sanitation', code: 'SAN' },
+          { id: 4, name: 'Street Lighting', code: 'SL' },
+          { id: 5, name: 'Drainage', code: 'DR' },
+        ])
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [API_BASE])
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
@@ -54,7 +93,7 @@ export default function ComplaintsFilters({
           </div>
         </div>
 
-        {/* Department Filter */}
+        {/* Category Filter */}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Category
@@ -63,11 +102,12 @@ export default function ComplaintsFilters({
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            disabled={loading}
           >
             <option value="all">All Categories</option>
-            {departments.map((dept) => (
-              <option key={dept.id} value={dept.id.toString()}>
-                {dept.name}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id.toString()}>
+                {cat.name} {cat.code && `(${cat.code})`}
               </option>
             ))}
           </select>

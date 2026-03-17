@@ -122,9 +122,9 @@ export default function DepartmentsSection() {
                     <Users className="w-4 h-4 text-slate-500" />
                     <span>{dept.officer_count} Officers</span>
                   </div>
-                  {dept.head_officer_name && (
-                    <span className="text-xs text-slate-500 truncate max-w-[150px]" title={dept.head_officer_name}>
-                      Head: {dept.head_officer_name.split('@')[0]}
+                  {dept.head_officer && (
+                    <span className="text-xs text-slate-500 truncate max-w-[150px]" title={dept.head_officer}>
+                      Head: {dept.head_officer.split('@')[0]}
                     </span>
                   )}
                 </div>

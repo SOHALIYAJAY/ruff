@@ -109,16 +109,6 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
           <h2 className="text-xl font-semibold text-slate-900">Performance Overview</h2>
           <p className="text-sm text-slate-600 mt-1">Real-time metrics from your database</p>
         </div>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        )}
       </div>
 
       {/* Loading State */}

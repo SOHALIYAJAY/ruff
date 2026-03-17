@@ -3,7 +3,7 @@ import { Users as UsersIcon } from 'lucide-react'
 
 export default function UsersKPI({ kpiCards }: any) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {kpiCards.map((card: any, index: number) => {
         const Icon = card.icon || UsersIcon
         return (

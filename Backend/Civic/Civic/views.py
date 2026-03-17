@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.generics import ListAPIView, UpdateAPIView, CreateAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -201,9 +201,21 @@ class ComplaintDelete(APIView):
             return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class Updatecomp(UpdateAPIView):
-    queryset = Complaint.objects.all()
-    serializer_class = ComplaintSerializer
+class Updatecomp(APIView):
+    def patch(self, request, pk):
+        try:
+            complaint = Complaint.objects.get(pk=pk)
+        except Complaint.DoesNotExist:
+            return Response({'error': 'Complaint not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        allowed = ['title', 'Description', 'priority_level', 'status', 'location_address', 'location_District', 'location_taluk']
+        data = {k: v for k, v in request.data.items() if k in allowed}
+
+        serializer = ComplaintSerializer(complaint, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class assigncomp(APIView):
@@ -235,7 +247,18 @@ class CategoriesList(APIView):
         ]
         return Response(categoinfo)
 
+    def post(self, request):
+        serializer = ComplaintCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            category = serializer.save()
+            return Response(
+                {'id': category.id, 'name': category.name, 'code': category.code, 'department': category.department, 'total_comp': category.total_comp},
+                status=status.HTTP_201_CREATED
+            )
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+ 
+ 
 class CategoryDelete(APIView):
     def delete(self, request, pk):
         try:
@@ -247,11 +270,40 @@ class CategoryDelete(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class Userinfo(APIView):
-    def get(self,request):
-        userinfo=request.user
 
 
-class CategoryUpdate(UpdateAPIView):
-    category=Category.objects.all()
+class CategoryUpdate(APIView):
+
+    def patch(self, request, pk):
+        try:
+            category = Category.objects.get(pk=pk)
+        except Category.DoesNotExist:
+            return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ComplaintCategorySerializer(category, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True, 'data': serializer.data}, status=status.HTTP_200_OK)
+        return Response({'success': False, 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class adminstats(APIView):
+    def get(self, request):
+        return Response({
+            'total_users': CustomUser.objects.all().count(),
+            'total_categories': Category.objects.all().count(),
+            'total_officers': Officer.objects.all().count(),
+        })
+
+class CategoryList(ListAPIView):
+    queryset=Category.objects.all()
     serializer_class=ComplaintCategorySerializer
+
+class TotalCategories(APIView):
+    def get(self, request):
+        catelist={}
+        cate=Category.objects.all()
+        for category in cate:
+            catelist[category.code] = Complaint.objects.filter(Category=category).count()
+        return Response(catelist)
+

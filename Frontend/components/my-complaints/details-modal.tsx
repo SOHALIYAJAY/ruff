@@ -1,215 +1,242 @@
-// 'use client'
+'use client'
 
-// import { useState, useEffect } from 'react'
-// import { X, CheckCircle, Clock, MessageSquare, Share2 } from 'lucide-react'
-// import { Button } from '@/components/ui/button'
+import { useState, useEffect } from 'react'
+import { X, CheckCircle, Clock, MessageSquare, Share2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
-// interface Complaint {
-//   id: string
-//   title: string
-//   Category: string
-//   location_address: string
-//   current_time: string
-//   status: 'Pending' | 'in-progress' | 'resolved'
-//   priority_level: 'Low' | 'Medium' | 'High'
-//   Description: string
-//   image_video?: string
-//   slaCompliance: number
-//   officerRemarks?: string
-//   timeline: Array<{ step: string; date: string; status: 'completed' | 'pending' }>
-//   estimatedResolution?: string
-// }
+interface Complaint {
+  id: string
+  title: string
+  Category: string
+  Description: string
+  location_address: string
+  location_District: string
+  location_taluk: string
+  priority_level: string
+  status: string
+  current_time?: string
+  image_video?: string
+}
 
-// const statusColors: Record<string, { bg: string; text: string }> = {
-//   Pending: { bg: 'bg-orange-500/10', text: 'text-orange-700' },
-//   'in-progress': { bg: 'bg-purple-500/10', text: 'text-purple-700' },
-//   resolved: { bg: 'bg-green-500/10', text: 'text-green-700' },
-// }
+interface ComplaintDetailsModalProps {
+  complaint: Complaint | null
+  open: boolean
+  onClose: () => void
+}
 
-// export default function ComplaintDetailsModal({
-//   complaint,
-//   onClose,
-// }: {
-//   complaint: Complaint
-//   onClose: () => void
-// }) {
-//   const [complaintDetails, setComplaintDetails] = useState<Complaint>(complaint)
+export default function ComplaintDetailsModal({ complaint, open, onClose }: ComplaintDetailsModalProps) {
+  const [activeTab, setActiveTab] = useState<'details' | 'timeline' | 'comments'>('details')
 
-//   useEffect(() => {
-//     if (complaint?.id) {
-//       fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/complaintDetails/${complaint.id}`)
-//         .then((res) => res.json())
-//         .then((data) => {
-//           setComplaintDetails(data)
-//         })
-//         .catch((error) => {
-//           console.error("Error fetching complaints:", error)
-//         })
-//     }
-//   }, [complaint?.id])
-  
-//   return (
-//     <>
-//       {/* Backdrop */}
-//       <div
-//         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
-//         onClick={onClose}
-//       />
+  if (!open || !complaint) return null
 
-//       {/* Modal */}
-//       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
-//         <div
-//           className="glass-effect rounded-lg border border-border max-w-2xl w-full my-8 shadow-2xl animate-in slide-in-up"
-//           onClick={(e) => e.stopPropagation()}
-//         >
-//           {/* Header */}
-//           <div className="sticky top-0 flex items-center justify-between p-6 border-b border-border bg-background/80 backdrop-blur">
-//             <div>
-//               <p className="text-xs font-mono text-muted-foreground mb-1">{complaintDetails.id}</p>
-//               <h2 className="text-2xl font-bold text-foreground">{complaintDetails.title }</h2>
-//             </div>
-//             <button
-//               onClick={onClose}
-//               className="p-2 hover:bg-muted rounded-lg transition-colors"
-//             >
-//               <X className="w-6 h-6" />
-//             </button>
-//           </div>
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'resolved':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
 
-//           {/* Content */}
-//           <div className="p-6 space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto">
-//             {/* Status Bar */}
-//             <div className="flex flex-wrap gap-3">
-//               <span
-//                 className={`px-4 py-2 rounded-full text-sm font-semibold ${
-//                   statusColors[complaintDetails.status].bg
-                  
-//                 } ${statusColors[complaintDetails.status].text}`}
-//               >
-//                 {complaintDetails.status.charAt(0).toUpperCase() + complaintDetails.status.slice(1)}
-//               </span>
-//               <span className="px-4 py-2 rounded-full text-sm font-semibold bg-orange-100 text-orange-800">
-//                 {complaintDetails.priority_level.charAt(0).toUpperCase() + complaintDetails.priority_level.slice(1)} Priority
-//               </span>
-//               <span className="px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-//                 SLA: {complaintDetails.slaCompliance}%
-//               </span>
-//             </div>
+  const getPriorityColor = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case 'high':
+        return 'bg-red-100 text-red-800 border-red-200'
+      case 'medium':
+        return 'bg-orange-100 text-orange-800 border-orange-200'
+      case 'low':
+        return 'bg-green-100 text-green-800 border-green-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
 
-//             {/* Details Grid */}
-//             <div className="grid grid-cols-2 gap-4">
-//               <div className="bg-muted/30 rounded-lg p-4">
-//                 <p className="text-xs text-muted-foreground font-semibold mb-1">LOCATION</p>
-//                 <p className="font-medium text-foreground">{complaintDetails.location_address}</p>
-//               </div>
-//               <div className="bg-muted/30 rounded-lg p-4">
-//                 <p className="text-xs text-muted-foreground font-semibold mb-1">CATEGORY</p>
-//                 <p className="font-medium text-foreground capitalize">{complaintDetails.Category}</p>
-//               </div>
-//               <div className="bg-muted/30 rounded-lg p-4">
-//                 <p className="text-xs text-muted-foreground font-semibold mb-1">SUBMITTED</p>
-//                 <p className="font-medium text-foreground">
-//                   {new Date(complaintDetails.current_time).toLocaleDateString()}
-//                 </p>
-//               </div>
-//               <div className="bg-muted/30 rounded-lg p-4">
-//                 <p className="text-xs text-muted-foreground font-semibold mb-1">RESOLUTION TIME</p>
-//                 <p className="font-medium text-foreground">{complaintDetails.estimatedResolution}</p>
-//               </div>
-//             </div>
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-6 border-b">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Complaint Details</h2>
+              <p className="text-sm text-gray-500 mt-1">ID: {complaint.id}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
 
-//             {/* Description */}
-//             <div>
-//               <h3 className="text-lg font-bold text-foreground mb-3">Full Description</h3>
-//               <p className="text-muted-foreground leading-relaxed">
-//                 {complaintDetails.Description}
-//               </p>
-//             </div>
+          {/* Tabs */}
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab('details')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'details'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Details
+            </button>
+            <button
+              onClick={() => setActiveTab('timeline')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'timeline'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => setActiveTab('comments')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'comments'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Comments
+            </button>
+          </div>
 
-//             {/* Timeline */}
-//             <div>
-//               <h3 className="text-lg font-bold text-foreground mb-4">Status Timeline</h3>
-//               <div className="space-y-2">
-//                 {complaintDetails.timeline.map((item, index) => (
-//                   <div key={index} className="flex gap-4">
-//                     <div className="flex flex-col items-center">
-//                       <div
-//                         className={`w-8 h-8 rounded-full flex items-center justify-center ${
-//                           item.status === 'completed'
-//                             ? 'bg-green-500/20 text-green-600'
-//                             : 'bg-gray-300 text-gray-500'
-//                         }`}
-//                       >
-//                         <CheckCircle className="w-5 h-5" />
-//                       </div>
-//                       {index < complaintDetails.timeline.length - 1 && (
-//                         <div
-//                           className={`w-1 h-8 ${
-//                             item.status === 'completed' ? 'bg-green-500/30' : 'bg-gray-300'
-//                           }`}
-//                         />
-//                       )}
-//                     </div>
-//                     <div className="pt-1 pb-8">
-//                       <p className="font-semibold text-foreground">{item.step}</p>
-//                       {item.date && (
-//                         <p className="text-sm text-muted-foreground">
-//                           {new Date(item.date).toLocaleDateString()}
-//                         </p>
-//                       )}
-//                     </div>
-//                   </div>
-//                 ))}
-//               </div>
-//             </div>
+          {/* Content */}
+          <div className="p-6 overflow-y-auto max-h-[60vh]">
+            {activeTab === 'details' && (
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Title</label>
+                      <p className="mt-1 text-sm text-gray-900">{complaint.title}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Category</label>
+                      <p className="mt-1 text-sm text-gray-900">{complaint.Category}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Priority</label>
+                      <div className="mt-1">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(complaint.priority_level)}`}>
+                          {complaint.priority_level}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Status</label>
+                      <div className="mt-1">
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(complaint.status)}`}>
+                          {complaint.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-//             {/* Officer Remarks */}
-//             {complaintDetails.officerRemarks && (
-//               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-//                 <div className="flex gap-3">
-//                   <MessageSquare className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-//                   <div>
-//                     <p className="text-sm font-semibold text-foreground mb-1">Officer Remarks</p>
-//                     <p className="text-sm text-muted-foreground">{complaintDetails.officerRemarks}</p>
-//                   </div>
-//                 </div>
-//               </div>
-//             )}
+                {/* Description */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Description</h3>
+                  <p className="text-sm text-gray-700 leading-relaxed">{complaint.Description}</p>
+                </div>
 
-//             {/* Feedback & Actions */}
-//             {complaintDetails.status === 'resolved' && (
-//               <div className="space-y-3">
-//                 <h3 className="text-lg font-bold text-foreground">Share Feedback</h3>
-//                 <p className="text-sm text-muted-foreground">
-//                   Help us improve by sharing your feedback on how we handled your complaint
-//                 </p>
-//                 <div className="flex gap-2">
-//                   <Button className="flex-1 bg-primary hover:bg-secondary gap-2">
-//                     <MessageSquare className="w-4 h-4" />
-//                     Submit Feedback
-//                   </Button>
-//                   <Button variant="outline" className="border-border gap-2">
-//                     <Share2 className="w-4 h-4" />
-//                     Share
-//                   </Button>
-//                 </div>
-//               </div>
-//             )}
-//           </div>
+                {/* Location */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Location</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Address</label>
+                      <p className="mt-1 text-sm text-gray-900">{complaint.location_address}</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">District</label>
+                        <p className="mt-1 text-sm text-gray-900">{complaint.location_District}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Taluk</label>
+                        <p className="mt-1 text-sm text-gray-900">{complaint.location_taluk}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-//           {/* Footer */}
-//           <div className="sticky bottom-0 flex gap-3 p-6 border-t border-border bg-background/80 backdrop-blur">
-//             <Button variant="outline" onClick={onClose} className="flex-1 border-border">
-//               Close
-//             </Button>
-//             {complaintDetails.status !== 'resolved' && (
-//               <Button className="flex-1 bg-primary hover:bg-secondary">
-//                 Escalate
-//               </Button>
-//             )}
-//           </div>
-//         </div>
-//       </div>
+                {/* Media */}
+                {complaint.image_video && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Media</h3>
+                    <div className="bg-gray-100 rounded-lg p-4">
+                      <p className="text-sm text-gray-600">Media file attached</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'timeline' && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Complaint Filed</p>
+                    <p className="text-xs text-gray-500">{complaint.current_time || 'Unknown time'}</p>
+                  </div>
+                </div>
+                {complaint.status !== 'pending' && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <MessageSquare className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">In Progress</p>
+                      <p className="text-xs text-gray-500">Complaint is being reviewed</p>
+                    </div>
+                  </div>
+                )}
+                {complaint.status === 'resolved' && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Resolved</p>
+                      <p className="text-xs text-gray-500">Complaint has been resolved</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'comments' && (
+              <div className="text-center py-8">
+                <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">No comments yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+            </div>
+            <Button onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 //     </>
 //   )
 // }

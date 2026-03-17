@@ -18,7 +18,7 @@ export default function DashboardPage() {
       <UtilityBar />
       <Header />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 items-stretch">
         {/* Sidebar Navigation - Fixed Width */}
         <DashboardSidebar />
 

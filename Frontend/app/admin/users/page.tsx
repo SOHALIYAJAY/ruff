@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { Users as UsersIcon, Lock, TrendingUp, FileText, AlertTriangle, Clock } from 'lucide-react'
+import { Users as UsersIcon, Lock, FileText, AlertTriangle, Clock } from 'lucide-react'
 
 import UsersKPI from '../../../components/admin/users/UsersKPI'
 import UsersAnalytics from '../../../components/admin/users/UsersAnalytics'
@@ -246,7 +246,6 @@ export default function UsersManagement() {
     { label: 'Total Registered Users', value: '1,044', change: '+12%', icon: UsersIcon, color: 'bg-blue-50', borderColor: 'border-blue-500' },
     { label: 'Active Users', value: '987', change: '+8%', icon: UsersIcon, color: 'bg-green-50', borderColor: 'border-green-500' },
     { label: 'Blocked Users', value: '12', change: '+2', icon: Lock, color: 'bg-red-50', borderColor: 'border-red-500' },
-    { label: 'New Users This Month', value: '145', change: '+15%', icon: TrendingUp, color: 'bg-purple-50', borderColor: 'border-purple-500' },
     { label: 'Users with Open Complaints', value: '234', change: '+5%', icon: FileText, color: 'bg-orange-50', borderColor: 'border-orange-500' },
   ]
 

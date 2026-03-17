@@ -1,290 +1,189 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, Filter, Download, TrendingUp, TrendingDown, AlertTriangle, Clock, CheckCircle, Users, Building2, BarChart3, RefreshCw } from 'lucide-react'
+import { TrendingUp, TrendingDown, Users, BarChart3 } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { getDashboardKPIs, refreshDashboardData, DashboardKPI, BackendDashboardResponse } from '../../services/dashboardService'
+import { getDashboardKPIs, DashboardKPI } from '../../services/dashboardService'
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview')
-  const [selectedMetric, setSelectedMetric] = useState('all')
   const [statsCards, setStatsCards] = useState<DashboardKPI[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
-  const [complaintStatusData, setComplaintStatusData] = useState<Array<{ name: string; value: number; color: string }>>([
-    { name: 'Open', value: 0, color: '#f97316' },
+  const [categoryChartData, setCategoryChartData] = useState<{ name: string; value: number; color: string }[]>([])
+  const [complaintStatusData, setComplaintStatusData] = useState([
+    { name: 'Pending', value: 0, color: '#f59e0b' },
     { name: 'In Progress', value: 0, color: '#8b5cf6' },
     { name: 'Resolved', value: 0, color: '#16a34a' },
-    { name: 'Escalated', value: 0, color: '#dc2626' },
   ])
   const [recentComplaints, setRecentComplaints] = useState<any[]>([])
-  const [rcStatusFilter, setRcStatusFilter] = useState<string>('All')
-  const [rcDeptFilter, setRcDeptFilter] = useState<string>('All')
-  const [rcPriorityFilter, setRcPriorityFilter] = useState<string>('All')
-  const [rcSearch, setRcSearch] = useState<string>('')
+  const [rcStatusFilter, setRcStatusFilter] = useState('All')
+  const [rcPriorityFilter, setRcPriorityFilter] = useState('All')
+  const [rcSearch, setRcSearch] = useState('')
+  const [adminStats, setAdminStats] = useState({ total_users: 0, total_categories: 0, total_officers: 0 })
 
-  // Fetch KPI data from backend
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+
+  const CATEGORY_COLORS = [
+    '#3b82f6', '#16a34a', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4',
+    '#f97316', '#84cc16', '#ec4899', '#14b8a6', '#a855f7', '#eab308',
+  ]
+
   const fetchKPIs = async () => {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 Fetching dashboard KPIs from backend...')
-      console.log('📡 API URL: http://localhost:8000/api/admindashboardcard/')
-      
       const data = await getDashboardKPIs()
-      console.log('✅ Received KPI data:', data)
-      console.log('📊 KPI Cards count:', data.length)
-      
       setStatsCards(data)
-      
-      // Log each KPI card details
-      data.forEach((kpi, index) => {
-        console.log(`📈 KPI ${index + 1}: ${kpi.title} = ${kpi.value}`)
-      })
-      
     } catch (err: any) {
-      console.error('❌ Dashboard data fetch error:', err)
-      console.error('🔍 Error details:', err.response?.data || err.message)
       setError('Failed to fetch dashboard data from backend')
-      // Use fallback data when backend fails
-      console.log('⚠️ Using fallback data due to API error')
     } finally {
       setLoading(false)
-      console.log('🏁 Fetch completed. Loading state:', false)
-    }
-  }
-
-  // Refresh dashboard data
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true)
-      setError(null)
-      console.log('Refreshing dashboard data...')
-      const data = await refreshDashboardData()
-      console.log('Refreshed KPI data:', data.kpis)
-      setStatsCards(data.kpis)
-    } catch (err) {
-      console.error('Dashboard refresh error:', err)
-      setError('Failed to refresh dashboard data')
-    } finally {
-      setRefreshing(false)
     }
   }
 
   useEffect(() => {
     fetchKPIs()
-    // fetch complaint status distribution
+
     const fetchComplaintStatus = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
-        const res = await fetch(`${API_BASE_URL}/api/complaintsinfo/`)
+        const res = await fetch(`${API_BASE}/api/admindashboardcard/`)
         const data = await res.json()
-        // backend returns: total_comp, resolved_comp, pending_comp, inprogress_comp
-        const total = Number(data.total_comp) || 0
-        const resolved = Number(data.resolved_comp) || 0
-        const pending = Number(data.pending_comp) || 0
-        const inprogress = Number(data.inprogress_comp) || 0
-        const open = Math.max(0, total - (resolved + pending + inprogress))
-        const pieData = [
-          { name: 'Open', value: open, color: '#f97316' },
-          { name: 'In Progress', value: inprogress, color: '#8b5cf6' },
-          { name: 'Resolved', value: resolved, color: '#16a34a' },
-          { name: 'Pending', value: pending, color: '#f59e0b' },
-        ]
-        setComplaintStatusData(pieData)
+        setComplaintStatusData([
+          { name: 'Pending', value: Number(data.Pending_comp) || 0, color: '#f59e0b' },
+          { name: 'In Progress', value: Number(data.inprogress_comp) || 0, color: '#8b5cf6' },
+          { name: 'Resolved', value: Number(data.resolved_comp) || 0, color: '#16a34a' },
+        ])
       } catch (err) {
-        console.error('Failed to fetch complaints info for pie chart', err)
+        console.error('Failed to fetch complaint status', err)
       }
     }
 
-    fetchComplaintStatus()
-    // fetch recent complaints for Recent Complaints card
     const fetchRecentComplaints = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
-        const res = await fetch(`${API_BASE_URL}/api/getcomplaint/`)
+        const res = await fetch(`${API_BASE}/api/getcomplaint/`)
         const data = await res.json()
-        // if backend has a limit endpoint, you can call /api/getcomplaintlimit/ instead
         setRecentComplaints(Array.isArray(data) ? data : [])
       } catch (err) {
         console.error('Failed to fetch recent complaints', err)
       }
     }
 
+    const fetchAdminStats = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/adminstats/`)
+        const data = await res.json()
+        setAdminStats({ total_users: data.total_users || 0, total_categories: data.total_categories || 0, total_officers: data.total_officers || 0 })
+      } catch (err) {
+        console.error('Failed to fetch admin stats', err)
+      }
+    }
+
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/categories/`)
+        const data: { name: string; total_comp: number }[] = await res.json()
+        setCategoryChartData(
+          data.map((cat, i) => ({
+            name: cat.name,
+            value: cat.total_comp || 0,
+            color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+          }))
+        )
+      } catch (err) {
+        console.error('Failed to fetch categories', err)
+      }
+    }
+
+    fetchComplaintStatus()
     fetchRecentComplaints()
+    fetchAdminStats()
+    fetchCategories()
   }, [])
 
-  // Fallback mock data for the first 4 KPI cards if API fails
   const fallbackKPIs: DashboardKPI[] = [
-    { 
-      title: 'Total Complaints', 
-      value: '2,847', 
-      trend: '+12%', 
-      trendUp: true,
-      badge: 'All Time',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-500',
-      textColor: 'text-blue-700'
-    },
-    { 
-      title: 'Open', 
-      value: '324', 
-      trend: '+5%', 
-      trendUp: true,
-      badge: 'Pending',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-500',
-      textColor: 'text-orange-700'
-    },
-    { 
-      title: 'In Progress', 
-      value: '581', 
-      trend: '-2%', 
-      trendUp: false,
-      badge: 'Active',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-500',
-      textColor: 'text-purple-700'
-    },
-    { 
-      title: 'Resolved', 
-      value: '1,942', 
-      trend: '+8%', 
-      trendUp: true,
-      badge: 'Completed',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-500',
-      textColor: 'text-green-700'
-    },
+    { title: 'Total Complaints', value: '0', trend: '+0%', trendUp: true, badge: 'All Time', bgColor: 'bg-blue-50', borderColor: 'border-blue-500', textColor: 'text-blue-700' },
+    { title: 'Resolved Complaints', value: '0', trend: '+0%', trendUp: true, badge: 'Completed', bgColor: 'bg-green-50', borderColor: 'border-green-500', textColor: 'text-green-700' },
+    { title: 'Pending Complaints', value: '0', trend: '+0%', trendUp: false, badge: 'Action Needed', bgColor: 'bg-orange-50', borderColor: 'border-orange-500', textColor: 'text-orange-700' },
+    { title: 'In Progress', value: '0', trend: '+0%', trendUp: true, badge: 'Working', bgColor: 'bg-purple-50', borderColor: 'border-purple-500', textColor: 'text-purple-700' },
   ]
 
-  // Use fetched data or fallback data
   const displayKPIs = statsCards.length > 0 ? statsCards.slice(0, 4) : fallbackKPIs
   const isUsingBackendData = statsCards.length > 0
-  
-  const monthlyTrendData = [
-    { month: 'Jan', complaints: 245, resolved: 210, escalated: 15 },
-    { month: 'Feb', complaints: 318, resolved: 280, escalated: 18 },
-    { month: 'Mar', complaints: 412, resolved: 380, escalated: 22 },
-    { month: 'Apr', complaints: 389, resolved: 350, escalated: 19 },
-    { month: 'May', complaints: 456, resolved: 420, escalated: 25 },
-    { month: 'Jun', complaints: 512, resolved: 480, escalated: 28 },
-  ]
 
-  const departments = [
-    { name: 'Public Works', resolution: 94, complaints: 450, color: 'bg-blue-500' },
-    { name: 'Water Authority', resolution: 91, complaints: 380, color: 'bg-cyan-500' },
-    { name: 'Electricity Board', resolution: 88, complaints: 420, color: 'bg-amber-500' },
-    { name: 'Municipal Corp', resolution: 85, complaints: 290, color: 'bg-emerald-500' },
-  ]
-
-
-
-  const escalatedComplaints = [
-    { id: 'ESC-001', title: 'Critical Water Supply Failure', district: 'Ahmedabad', daysOpen: 8, slaViolated: true },
-    { id: 'ESC-002', title: 'Road Collapse Risk', district: 'Surat', daysOpen: 6, slaViolated: true },
-    { id: 'ESC-003', title: 'Power Outage - Hospital Area', district: 'Vadodara', daysOpen: 5, slaViolated: false },
-  ]
 
   const getStatusColor = (status: string) => {
-    const colors = {
-      'Open': 'bg-orange-100 text-orange-700 border-orange-200',
-      'In Progress': 'bg-blue-100 text-blue-700 border-blue-200',
-      'Resolved': 'bg-green-100 text-green-700 border-green-200',
-      'Escalated': 'bg-red-100 text-red-700 border-red-200'
+    const colors: Record<string, string> = {
+      'Pending': 'bg-orange-100 text-orange-700 border-orange-200',
+      'in-progress': 'bg-blue-100 text-blue-700 border-blue-200',
+      'resolved': 'bg-green-100 text-green-700 border-green-200',
     }
-    return colors[status as keyof typeof colors] || 'bg-slate-100 text-slate-700 border-slate-200'
+    return colors[status] || 'bg-slate-100 text-slate-700 border-slate-200'
   }
 
   const getPriorityColor = (priority: string) => {
-    const colors = {
-      'Critical': 'text-red-700 font-bold',
+    const colors: Record<string, string> = {
       'High': 'text-orange-600 font-semibold',
       'Medium': 'text-yellow-600',
-      'Low': 'text-green-600'
+      'Low': 'text-green-600',
     }
-    return colors[priority as keyof typeof colors] || 'text-slate-600'
+    return colors[priority] || 'text-slate-600'
   }
 
   return (
-    <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-[#F8FAFC] min-h-screen">
+
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm p-6">
+      <div className="bg-gradient-to-r from-blue-50 to-white rounded-xl border border-[#E2E8F0] shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-blue-900">Gujarat CivicTrack</h1>
-            <p className="text-sm text-blue-700 mt-1">Smart City Governance & Civic Complaint Portal</p>
+            <h1 className="text-3xl font-bold text-[#1E293B]">Gujarat CivicTrack</h1>
+            <p className="text-sm text-[#64748B] mt-1">Smart City Governance & Civic Complaint Portal</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-blue-600 font-medium">Real-time Monitoring</p>
-            <p className="text-xs text-blue-500">Last updated: Today at 2:45 PM</p>
+            <p className="text-sm text-[#2563EB] font-medium">Real-time Monitoring</p>
           </div>
         </div>
       </div>
 
       {/* KPI Section */}
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100 p-6">
+      <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-slate-800">Key Performance Indicators</h2>
-            <div className={`px-2 py-1 rounded text-xs font-medium ${
-              isUsingBackendData 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-orange-100 text-orange-700'
-            }`}>
+            <h2 className="text-lg font-semibold text-[#1E293B]">Key Performance Indicators</h2>
+            <div className={`px-2 py-1 rounded text-xs font-medium ${isUsingBackendData ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
               {isUsingBackendData ? '🟢 Live Data' : '🟠 Demo Data'}
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {loading && !refreshing && (
+            {loading && (
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-sm text-blue-600">Loading...</span>
+                <div className="w-4 h-4 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-[#2563EB]">Loading...</span>
               </div>
             )}
-            {error && (
-              <span className="text-sm text-red-600">⚠️ {error}</span>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={loading || refreshing}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                refreshing 
-                  ? 'bg-blue-100 text-blue-700 cursor-not-allowed' 
-                  : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-200'
-              }`}
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
+            {error && <span className="text-sm text-[#EF4444]">⚠️ {error}</span>}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {displayKPIs.map((card, idx) => (
             <div
               key={idx}
-              className={`bg-white rounded-lg border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-5 ${(loading || refreshing) ? 'animate-pulse' : ''}`}
+              className={`bg-white rounded-xl border-t-4 ${card.borderColor} shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-200 p-5 ${loading ? 'animate-pulse' : ''}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{card.title}</p>
-                  <p className="text-3xl font-bold text-slate-800 mt-2">{(loading || refreshing) ? '...' : card.value}</p>
+                  <p className="text-xs font-medium text-[#64748B] uppercase tracking-wide">{card.title}</p>
+                  <p className="text-3xl font-bold text-[#1E293B] mt-2">{loading ? '...' : card.value}</p>
                 </div>
                 <div className={`${card.bgColor} ${card.textColor} px-2 py-1 rounded text-xs font-semibold`}>
                   {card.badge}
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {card.trendUp ? (
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-red-600" />
-                )}
-                <span className={`text-sm font-semibold ${card.trendUp ? 'text-green-600' : 'text-red-600'}`}>
-                  {card.trend}
-                </span>
-                <span className="text-xs text-slate-500">vs last month</span>
+                {card.trendUp ? <TrendingUp className="w-4 h-4 text-[#22C55E]" /> : <TrendingDown className="w-4 h-4 text-[#EF4444]" />}
+                <span className={`text-sm font-semibold ${card.trendUp ? 'text-[#22C55E]' : 'text-[#EF4444]'}`}>{card.trend}</span>
+                <span className="text-xs text-[#64748B]">vs last month</span>
               </div>
             </div>
           ))}
@@ -293,203 +192,128 @@ export default function AdminDashboard() {
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Complaints */}
-        <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm">
-          <div className="p-5 border-b border-slate-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-800">Recent Complaints</h3>
-                <p className="text-sm text-slate-500">Latest submissions requiring attention</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Search ID or title"
-                  value={rcSearch}
-                  onChange={(e) => setRcSearch(e.target.value)}
-                  className="text-sm px-3 py-2 border rounded-lg"
-                />
-                <select value={rcStatusFilter} onChange={(e) => setRcStatusFilter(e.target.value)} className="text-sm px-3 py-2 border rounded-lg">
-                  <option value="All">All Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                </select>
-                <select value={rcPriorityFilter} onChange={(e) => setRcPriorityFilter(e.target.value)} className="text-sm px-3 py-2 border rounded-lg">
-                  <option value="All">All Priority</option>
-                  <option value="Critical">Critical</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
-            </div>
+        {/* Recent Complaints - Block 1 */}
+        <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm">
+          <div className="p-5 border-b border-[#E2E8F0]">
+            <h3 className="text-lg font-semibold text-[#1E293B]">Recent Complaints</h3>
+            <p className="text-sm text-[#64748B]">Latest complaints submitted to system</p>
           </div>
-          <div className="divide-y divide-slate-100">
-            {(() => {
-              const filtered = recentComplaints.filter((comp: any) => {
-                const status = (comp.status || comp.Status || '').toString()
-                const priority = (comp.priority || comp.priority_level || '').toString()
-                const dept = (comp.department || comp.department_name || comp.department_id || '').toString()
-                const id = (comp.id || comp.comp_id || '').toString()
-                const title = (comp.title || comp.Description || '').toString()
-
-                const matchesSearch = rcSearch === '' || id.toLowerCase().includes(rcSearch.toLowerCase()) || title.toLowerCase().includes(rcSearch.toLowerCase())
-                const matchesStatus = rcStatusFilter === 'All' || String(status).toLowerCase() === String(rcStatusFilter).toLowerCase()
-                const matchesPriority = rcPriorityFilter === 'All' || String(priority).toLowerCase() === String(rcPriorityFilter).toLowerCase()
-                const matchesDept = rcDeptFilter === 'All' || rcDeptFilter === '' || String(dept).toLowerCase() === String(rcDeptFilter).toLowerCase()
-
-                return matchesSearch && matchesStatus && matchesPriority && matchesDept
-              })
-
-              return filtered.slice(0, 4).map((complaint: any) => (
-                <div key={complaint.id || complaint.comp_id} className="p-5 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-start justify-between mb-2">
+          <div className="divide-y divide-[#E2E8F0]">
+            {loading ? (
+              <div className="p-8 text-center text-[#64748B]">Loading...</div>
+            ) : recentComplaints.length > 0 ? (
+              recentComplaints.map((complaint) => (
+                <div key={complaint.id} className="p-4 hover:bg-[#F8FAFC] transition-colors">
+                  <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="text-sm font-mono font-semibold text-blue-700">{complaint.id || complaint.comp_id || `#${complaint.id}`}</span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(complaint.status || complaint.Status || complaint.status_text || '')}`}>
-                          {complaint.status || complaint.Status || 'Unknown'}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-mono font-semibold text-[#2563EB]">#{complaint.id}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusColor(complaint.status || '')}`}>
+                          {complaint.status || 'Unknown'}
                         </span>
                       </div>
-                      <p className="text-sm font-medium text-slate-800">{complaint.title}</p>
-                      <p className="text-xs text-slate-500 mt-1">{complaint.location_District || complaint.Location_District || complaint.district || complaint.location || ''}</p>
+                      <p className="text-sm font-medium text-[#1E293B]">{complaint.title}</p>
+                      <p className="text-xs text-[#64748B] mt-1">{complaint.location_District || ''}</p>
                     </div>
-                    <span className={`text-xs font-semibold ${getPriorityColor(complaint.priority || complaint.priority_level || '')}`}>
-                      {complaint.priority || complaint.priority_level || ''}
+                    <span className={`text-xs font-semibold ${getPriorityColor(complaint.priority_level || '')}`}>
+                      {complaint.priority_level || ''}
                     </span>
                   </div>
                 </div>
               ))
-            })()}
+            ) : (
+              <div className="p-8 text-center text-[#64748B]">No complaints found</div>
+            )}
           </div>
         </div>
 
-        {/* Department Performance */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-          <div className="p-5 border-b border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-800">Departments</h3>
-            <p className="text-sm text-slate-500">Resolution rates</p>
-          </div>
-          <div className="p-5 space-y-4">
-            {departments.map((dept, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{dept.name}</p>
-                    <p className="text-xs text-slate-500">{dept.complaints} complaints</p>
+        {/* Charts and Overview Row - Blocks 2, 3, 4 */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Status Donut - Block 2 */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Complaint Status Distribution</h3>
+            <div className="flex items-center gap-6">
+              <ResponsiveContainer width={200} height={220}>
+                <PieChart>
+                  <Pie data={complaintStatusData.filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
+                    {complaintStatusData.filter(d => d.value > 0).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any, name: any) => [`${value} complaints`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-col gap-3">
+                {complaintStatusData.map((entry) => (
+                  <div key={entry.name} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className="text-sm text-slate-600">{entry.name}</span>
+                    <span className="ml-auto text-sm font-semibold text-slate-800 pl-4">{entry.value}</span>
                   </div>
-                  <span className="text-lg font-bold text-slate-800">{dept.resolution}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`${dept.color} h-full rounded-full transition-all duration-500`}
-                    style={{ width: `${dept.resolution}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Section: Removed Monthly and District charts per request; keeping status distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-        {/* Complaint Status Pie Chart */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-slate-800 mb-4">Complaint Status Distribution</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={complaintStatusData} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={100}>
-                {complaintStatusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* District-wise chart removed per request */}
-
-      {/* SLA Breach Monitor removed per request */}
-
-      {/* Tabs Section */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm">
-        <div className="flex gap-2 border-b border-slate-200 p-2">
-          <button
-            onClick={() => setSelectedTab('overview')}
-            className={`px-6 py-3 font-medium text-sm rounded-lg transition-colors ${
-              selectedTab === 'overview'
-                ? 'bg-blue-50 text-blue-700'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Overview
-          </button>
-          {/* Removed "All Complaints" and "Department Stats" tabs per request */}
-        </div>
-        {/* Only Overview tab remains; other tabs removed per request */}
-
-        {/* OVERVIEW SECTION */}
-        {selectedTab === 'overview' && (
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  <span className="text-xs font-semibold text-blue-600">Current</span>
-                </div>
-                <p className="text-xs text-blue-600 uppercase tracking-wide mb-1">Average Response Time</p>
-                <p className="text-3xl font-bold text-blue-900">2.4 hrs</p>
-                <p className="text-xs text-blue-600 mt-2">↓ 15% from last month</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-xs font-semibold text-green-600">On Track</span>
-                </div>
-                <p className="text-xs text-green-600 uppercase tracking-wide mb-1">SLA Compliance Rate</p>
-                <p className="text-3xl font-bold text-green-900">94.2%</p>
-                <p className="text-xs text-green-600 mt-2">Target: 95%</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <Users className="w-5 h-5 text-purple-600" />
-                  <span className="text-xs font-semibold text-purple-600">Active</span>
-                </div>
-                <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Active Officers Online</p>
-                <p className="text-3xl font-bold text-purple-900">47/52</p>
-                <p className="text-xs text-purple-600 mt-2">90% availability</p>
               </div>
             </div>
+          </div>
 
-            <div className="bg-slate-50 rounded-lg border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-4">System Health</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">API Uptime</p>
-                  <p className="text-2xl font-bold text-slate-800">99.9%</p>
+          {/* Categories Pie - Block 3 */}
+          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Complaints by Category</h3>
+            <div className="flex items-center gap-6">
+              <ResponsiveContainer width={200} height={220}>
+                <PieChart>
+                  <Pie data={categoryChartData.filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={2} dataKey="value">
+                    {categoryChartData.filter(d => d.value > 0).map((entry, index) => (
+                      <Cell key={`cat-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any, name: any) => [`${value} complaints`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-col gap-2 overflow-y-auto max-h-[220px] flex-1">
+                {categoryChartData.map((entry) => (
+                  <div key={entry.name} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
+                    <span className="text-xs text-slate-600 flex-1">{entry.name}</span>
+                    <span className="text-xs font-semibold text-slate-800">{entry.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Overview Stats - Block 4 */}
+          <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4 p-6 pb-0">Overview</h3>
+            <div className="p-6 pt-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <Users className="w-5 h-5 text-blue-600" />
+                    <span className="text-xs font-semibold text-blue-600">Registered</span>
+                  </div>
+                  <p className="text-xs text-blue-600 uppercase tracking-wide mb-1">Total Users</p>
+                  <p className="text-3xl font-bold text-blue-900">{adminStats.total_users}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Avg Response</p>
-                  <p className="text-2xl font-bold text-slate-800">234ms</p>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <BarChart3 className="w-5 h-5 text-purple-600" />
+                    <span className="text-xs font-semibold text-purple-600">Working</span>
+                  </div>
+                  <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Total Officers</p>
+                  <p className="text-3xl font-bold text-purple-900">{adminStats.total_officers}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Database Latency</p>
-                  <p className="text-2xl font-bold text-slate-800">45ms</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Active Users</p>
-                  <p className="text-2xl font-bold text-slate-800">1,247</p>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200 p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <BarChart3 className="w-5 h-5 text-purple-600" />
+                    <span className="text-xs font-semibold text-purple-600">Configured</span>
+                  </div>
+                  <p className="text-xs text-purple-600 uppercase tracking-wide mb-1">Total Categories</p>
+                  <p className="text-3xl font-bold text-purple-900">{adminStats.total_categories}</p>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -8,21 +8,21 @@ import OfficerProfileModal from "@/components/admin/officers/officer-profile-mod
 import AddOfficerModal from "@/components/department/add-officer-modal"
 import OfficersAnalytics from "@/components/department/officers-analytics"
 
-export default function DepartmentOfficersPage() {
+export default function AdminOfficersPage() {
   const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
   const [showAddOfficer, setShowAddOfficer] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("All")
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
-
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-blue-900">Officers</h1>
-            <p className="text-blue-700 mt-1 text-sm">View and manage officers in your department</p>
+            <h1 className="text-3xl font-bold text-blue-900">Officers Management</h1>
+            <p className="text-blue-700 mt-1 text-sm">Monitor and manage all department officers</p>
           </div>
           <button
             onClick={() => setShowAddOfficer(true)}
@@ -50,6 +50,15 @@ export default function DepartmentOfficersPage() {
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="All">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
@@ -64,7 +73,7 @@ export default function DepartmentOfficersPage() {
         </div>
       </div>
 
-      {/* Analytics */}
+      {/* Analytics Section */}
       {showAnalytics && (
         <div className="bg-white rounded-lg border border-slate-200 p-6">
           <h2 className="text-lg font-bold text-slate-900 mb-4">Officer Performance Analytics</h2>

@@ -14,15 +14,17 @@ interface Complaint {
   id: string
   title: string
   Category: string
+  Description: string
   location_address: string
+  location_District: string
+  location_taluk: string
   current_time: string
   status: 'Pending' | 'in-progress' | 'resolved'
   priority_level: 'Low' | 'Medium' | 'High'
-  Description: string
   image_video?: string
-  slaCompliance: number
+  slaCompliance?: number
   officerRemarks?: string
-  timeline: Array<{ step: string; date: string; status: 'completed' | 'pending' }>
+  timeline?: Array<{ step: string; date: string; status: 'completed' | 'pending' }>
   estimatedResolution?: string
 }
 
@@ -135,6 +137,7 @@ export default function MyComplaintsPage() {
       {selectedComplaint && (
         <ComplaintDetailsModal
           complaint={selectedComplaint}
+          open={!!selectedComplaint}
           onClose={() => setSelectedComplaint(null)}
         />
       )}

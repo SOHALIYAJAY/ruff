@@ -19,7 +19,7 @@ from django.urls import path
 from complaints.views import createcomplaint
 from complaints.district_views import DistrictDetailView
 from Civic import views
-from Civic.views import getcomplaint,getcomplaintlimit,compinfo,complaintofficer,officerprofile,officerkpi,adminallcomplaintcart,adimncomplaints,ComplaintDelete,assigncomp,crateofficer,CategoriesList,CategoryDelete
+from Civic.views import getcomplaint,getcomplaintlimit,compinfo,complaintofficer,officerprofile,officerkpi,adminallcomplaintcart,adimncomplaints,ComplaintDelete,assigncomp,crateofficer,CategoriesList,CategoryDelete,adminstats
 from accounts.views import RegisterView, LoginView, LogoutView, GoogleLoginView
 from contact_us.views import ContactUSview
 from departments.views import OfficerDetail
@@ -56,6 +56,9 @@ urlpatterns = [
     path('api/create-officer/', crateofficer.as_view(), name='create-officer'),
     path('api/categories/', CategoriesList.as_view(), name='categories'),
     path('api/deletecategory/<int:pk>/', CategoryDelete.as_view(), name='delete-category'),
-    path('api/updatecategory/<int:pk>/',views.CategoryUpdate.as_view(),name='update-category')
+    path('api/updatecategory/<int:pk>/', views.CategoryUpdate.as_view(), name='update-category'),
+    path('api/adminstats/', adminstats.as_view(), name='adminstats'),
+    path('api/categorieslist/',views.CategoryList.as_view(),name='categorieslist'),
+    path('api/totalcategories/',views.TotalCategories.as_view(),name='totalcategories')
 ]
                                                                                                    

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Plus,
   Eye,
-  Bell,
   User,
   LogOut,
   ChevronRight,
@@ -35,12 +34,6 @@ export default function DashboardSidebar() {
       icon: <Eye className="w-5 h-5" />,
       href: '/my-complaints',
     },
-    // {
-    //   label: 'Notifications',
-    //   icon: <Bell className="w-5 h-5" />,
-    //   href: '/notifications',
-    //   badge: 2,
-    // },
     {
       label: 'Profile',
       icon: <User className="w-5 h-5" />,
@@ -70,7 +63,7 @@ export default function DashboardSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-full lg:w-64 overflow-y-auto ${
+        className={`fixed left-0 top-0 h-screen w-64 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-auto lg:self-stretch lg:w-64 overflow-y-auto ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -97,11 +90,6 @@ export default function DashboardSidebar() {
                     {item.icon}
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  {/* {item.badge && (
-                    <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
-                      {item.badge}
-                    </span>
-                  )} */}
                   {isActive(item.href) && <ChevronRight className="w-4 h-4" />}
                 </div>
               </Link>

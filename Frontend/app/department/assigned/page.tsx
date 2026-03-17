@@ -55,7 +55,7 @@ export default function AssignedComplaintsPage() {
       <AssignOfficerModal
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        complaint={selectedComplaint ? { id: selectedComplaint.id, title: selectedComplaint.title, officer: selectedComplaint.officer } : null}
+        complaint={selectedComplaint ? { id: selectedComplaint.id.toString(), title: selectedComplaint.title, officer: selectedComplaint.officer_id?.toString() || '' } : null}
       />
       <ViewDetailsModal
         open={detailsModalOpen}

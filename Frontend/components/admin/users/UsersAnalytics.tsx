@@ -29,18 +29,6 @@ export default function UsersAnalytics({ usersByDistrict, monthlyUsers, userRole
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">Monthly Users Count</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={monthlyUsers}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis stroke="#94a3b8" />
-            <YAxis stroke="#94a3b8" />
-            <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }} />
-            <Bar dataKey="users" fill="#16a34a" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
 
       <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
         <h3 className="text-lg font-semibold text-slate-800 mb-4">User Role Distribution</h3>

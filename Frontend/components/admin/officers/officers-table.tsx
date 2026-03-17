@@ -23,6 +23,8 @@ export interface Officer {
   email: string
   phone: string
   is_available: boolean
+  activeComplaints?: number
+  maxCapacity?: number
 }
 
 type SortKey = "name"

@@ -27,6 +27,7 @@ export interface Complaint {
   Category: string | number
   Description: string
   video_image: string
+  image_video?: string
   location_District: string
   location_address: string
   category_code?: string

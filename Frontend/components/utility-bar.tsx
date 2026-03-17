@@ -40,24 +40,7 @@ export default function UtilityBar() {
           <Phone className="w-4 h-4" />
           <span className="text-sm font-medium">Helpline: 1800-233-4567</span>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4" />
-            <Select defaultValue="en">
-              <SelectTrigger className="w-32 bg-secondary text-secondary-foreground border-0 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="gu">Gujarati (ગુજરાતી)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          
         </div>
-      </div>
     </div>
   )
 }

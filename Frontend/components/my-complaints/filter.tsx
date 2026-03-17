@@ -34,8 +34,11 @@ export default function ComplaintsFilter({
 
   useEffect(() => {
     let mounted = true
-    fetch(`${API_BASE}/api/categories/`)
-      .then((r) => r.json())
+    fetch(`${API_BASE}/api/categorieslist/`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to fetch categories')
+        return r.json()
+      })
       .then((data) => {
         if (!mounted) return
         setCategories(Array.isArray(data) ? data : [])

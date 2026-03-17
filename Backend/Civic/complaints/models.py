@@ -4,6 +4,7 @@ from django.db import models
 # from django.contrib.auth.models import User 
 from django.utils import timezone
 from departments.models import Officer
+from Categories.models import Category
 class Complaint(models.Model):
 
     CHOICE_PRIORITY=(
@@ -19,7 +20,7 @@ class Complaint(models.Model):
     
     title=models.CharField(max_length=100)
     officer_id=models.ForeignKey(Officer, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_complaints')
-    Category=models.ForeignKey('ComplaintCategory', null=True, blank=True, on_delete=models.SET_NULL, related_name='complaints')
+    Category=models.ForeignKey(Category, null=True, blank=True, on_delete=models.CASCADE, related_name='complaints')
     Description=models.CharField(max_length=300)
     image_video=models.FileField(upload_to='media/', null=True, blank=True)
     location_address=models.CharField(max_length=200)
