@@ -37,21 +37,33 @@ export default function ActivityFeed() {
 useEffect(() => {
   setLoading(true)
   const token = localStorage.getItem('access_token')
-  setIsLoggedIn(!!token)
+  const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
+  setIsLoggedIn(isTokenValid)
   
   // If user is logged in, show their complaints; otherwise show public complaints
-  const endpoint = token ? `${API_BASE_URL}/api/getcomplaintlimit/` : `${API_BASE_URL}/api/getpubliccomplaints/`
+  const endpoint = isTokenValid ? `${API_BASE_URL}/api/getcomplaintlimit/` : `${API_BASE_URL}/api/getpubliccomplaints/`
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   }
   
-  if (token) {
+  if (isTokenValid) {
     headers['Authorization'] = `Bearer ${token}`
   }
   
   fetch(endpoint, { headers })
     .then((res) => {
       if (!res.ok) {
+        // If we get a 401 on the authenticated endpoint, fall back to public complaints
+        if (res.status === 401 && isTokenValid) {
+          console.warn('Token expired or invalid, falling back to public complaints')
+          // Clear invalid token
+          localStorage.removeItem('access_token')
+          setIsLoggedIn(false)
+          // Retry with public endpoint
+          return fetch(`${API_BASE_URL}/api/getpubliccomplaints/`, {
+            headers: { 'Content-Type': 'application/json' }
+          })
+        }
         throw new Error(`HTTP error! status: ${res.status}`)
       }
       return res.json()
@@ -70,7 +82,35 @@ useEffect(() => {
     })
     .catch((error) => {
       console.error("Error fetching complaints:", error)
-      setComplaints([])
+      // If error occurs and we were trying authenticated endpoint, try public
+      if (isTokenValid && error.message.includes('401')) {
+        console.warn('Authentication failed, showing public complaints')
+        localStorage.removeItem('access_token')
+        setIsLoggedIn(false)
+        // Try public complaints as fallback
+        fetch(`${API_BASE_URL}/api/getpubliccomplaints/`, {
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+          return res.json()
+        })
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setComplaints(data)
+          } else if (data && Array.isArray(data.results)) {
+            setComplaints(data.results)
+          } else {
+            setComplaints([])
+          }
+        })
+        .catch((fallbackError) => {
+          console.error("Fallback also failed:", fallbackError)
+          setComplaints([])
+        })
+      } else {
+        setComplaints([])
+      }
     })
     .finally(() => {
       setLoading(false)

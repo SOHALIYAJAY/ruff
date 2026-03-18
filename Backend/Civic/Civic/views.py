@@ -1,18 +1,21 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework.generics import ListAPIView, CreateAPIView
+from django.http import JsonResponse
+import traceback
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView, CreateAPIView
+from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-import datetime as dt 
-from complaints.models import Complaint, ComplaintAssignment
-from complaints.serializers import ComplaintSerializer, ComplaintAssignmentSerializer
+from django.db.models import Count
+from complaints.models import Complaint
+from Categories.models import Category
 from accounts.models import CustomUser
 from departments.models import Department, Officer
 from departments.serializers import deptSerializer, OfficerSerializer
-from Categories.models import Category
 from Categories.serializers import ComplaintCategorySerializer
+from complaints.serializers import ComplaintSerializer,ComplaintAssignmentSerializer
+from complaints.models import ComplaintAssignment
 
 
 class getcomplaint(ListAPIView):
@@ -42,9 +45,9 @@ class getpubliccomplaints(ListAPIView):
 @permission_classes([IsAuthenticated])
 def complaintsinfo(request):
     total_comp = Complaint.objects.filter(user=request.user).count()
-    resolved_comp = Complaint.objects.filter(status='resolved', user=request.user).count()
-    pending_comp = Complaint.objects.filter(status='Pending',user=request.user).count()
-    inprogress_comp = Complaint.objects.filter(status='in-progress',user=request.user).count()
+    resolved_comp = Complaint.objects.filter(status='resolved' , user=request.user).count()
+    pending_comp = Complaint.objects.filter(status='Pending' , user=request.user).count()
+    inprogress_comp = Complaint.objects.filter(status='in-progress' , user=request.user).count()
     
     return Response({
         'total_comp': total_comp,
@@ -57,10 +60,10 @@ def complaintsinfo(request):
 class compinfo(APIView):
     permission_classes = [IsAuthenticated]
     
-    def get(self, request):
-        total_comp = Complaint.objects.filter(user=request.user).count()
-        resolved_comp = Complaint.objects.filter(status='resolved', user=request.user).count()
-        pending_comp = Complaint.objects.filter(status='Pending',user=request.user).count()
+    def get(self,request):
+        total_comp = Complaint.objects.filter(user=self.request.user).count()
+        resolved_comp = Complaint.objects.filter(status='resolved', user=self.request.user).count()
+        pending_comp = Complaint.objects.filter(status='Pending',user=self.request.user).count()
         total_categories = Category.objects.all().count()
         return Response({
             'total_complaints': total_comp,
@@ -84,11 +87,10 @@ def complaintDetails(request, pk):
 class UserDetail(APIView):
     def get(self, request):
         try:
-            # Try to get the authenticated user first
+         
             if hasattr(request, 'user') and request.user.is_authenticated:
                 user_detail = request.user
             else:
-                # Fallback to first user (for testing)
                 user_detail = CustomUser.objects.first()
             
             if not user_detail:
@@ -474,14 +476,78 @@ class adminstats(APIView):
 class CategoryList(ListAPIView):
     queryset=Category.objects.all()
     serializer_class=ComplaintCategorySerializer
+    
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
+            
+            # Add complaint counts to each category
+            categories_with_counts = []
+            for category in serializer.data:
+                complaint_count = Complaint.objects.filter(Category_id=category['id']).count()
+                categories_with_counts.append({
+                    'id': category['id'],
+                    'name': category['name'],
+                    'code': category['code'],
+                    'department': category['department'],
+                    'total_comp': complaint_count
+                })
+            
+            return Response(categories_with_counts)
+        except Exception as e:
+            print(f"Error in CategoryList: {str(e)}")
+            return Response([])
 
 class TotalCategories(APIView):
     def get(self, request):
-        catelist={}
-        cate=Category.objects.all()
-        for category in cate:
-            catelist[category.code] = Complaint.objects.filter(Category=category).count()
-        return Response(catelist)
+        try:
+            print("DEBUG: TotalCategories endpoint called")
+            
+            # Get all categories and count complaints for each
+            categories = Category.objects.all()
+            result = []
+            
+            for category in categories:
+                # Count complaints using the foreign key relationship
+                count = Complaint.objects.filter(Category_id=category.id).count()
+                result.append({
+                    'name': category.name,
+                    'total_comp': count
+                })
+                print(f"DEBUG: Category '{category.name}' has {count} complaints")
+            
+            print(f"DEBUG: Returning {len(result)} categories")
+            return Response(result)
+            
+        except Exception as e:
+            print(f"Error in TotalCategories: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # Return empty list on error to prevent frontend crashes
+            return Response([])
+
+class TestCategories(APIView):
+    def get(self, request):
+        """Simple test endpoint to verify frontend-backend connection"""
+        try:
+            print("DEBUG: TestCategories endpoint called")
+            
+            # Return some hardcoded test data first
+            test_data = [
+                {'name': 'Roads & Infrastructure', 'total_comp': 25},
+                {'name': 'Water Supply', 'total_comp': 18},
+                {'name': 'Sanitation', 'total_comp': 12},
+                {'name': 'Street Lighting', 'total_comp': 8},
+                {'name': 'Drainage', 'total_comp': 6}
+            ]
+            
+            print(f"DEBUG: Returning test data: {test_data}")
+            return Response(test_data)
+            
+        except Exception as e:
+            print(f"ERROR in TestCategories: {str(e)}")
+            return Response([], status=500)
 
 class TrackComplaint(APIView):
     def get(self, request, pk=None):
@@ -504,22 +570,52 @@ class TrackComplaint(APIView):
             }, status=500)
 
 class ComplaintMonthWise(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def get(self,request):
-        comp=Complaint.objects.all()
+        # Check if user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return Response({
+                'error': 'Authentication required'
+            }, status=401)
+            
         month={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0}
-        for i in month:
-            month[i]=Complaint.objects.filter(current_time__month=i).count()
-        return Response(month)
+        try:
+            for i in month:
+                month[i]=Complaint.objects.filter(current_time__month=i,user=request.user).count()
+            return Response(month)
+        except Exception as e:
+            print(f"Error in ComplaintMonthWise: {e}")
+            # Return default values if there's an error
+            return Response({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0})
 
 class ComplaintStatus(APIView):
+    permission_classes = [IsAuthenticated]
+    
     def get(self, request):
-        status_counts = {
-            'Pending': Complaint.objects.filter(status='Pending').count(),
-            'In Progress': Complaint.objects.filter(status='in-progress').count(),
-            'Resolved': Complaint.objects.filter(status='resolved').count(),
-            'Rejected': Complaint.objects.filter(status='rejected').count(),
-        }
-        return Response(status_counts)
+        try:
+            # Check if user is authenticated
+            if not request.user or not request.user.is_authenticated:
+                return Response({
+                    'error': 'Authentication required'
+                }, status=401)
+                
+            status_counts = {
+                'Pending': Complaint.objects.filter(status='Pending', user=request.user).count(),
+                'In Progress': Complaint.objects.filter(status='in-progress', user=request.user).count(),
+                'Resolved': Complaint.objects.filter(status='resolved', user=request.user).count(),
+                'Rejected': Complaint.objects.filter(status='rejected', user=request.user).count(),
+            }
+            return Response(status_counts)
+        except Exception as e:
+            print(f"Error in ComplaintStatus: {e}")
+            # Return default values if there's an error
+            return Response({
+                'Pending': 0,
+                'In Progress': 0,
+                'Resolved': 0,
+                'Rejected': 0
+            })
 
 class OfficerDelete(APIView):
     def delete(self, request, pk=None):
@@ -720,3 +816,63 @@ class ComplaintInDetail(APIView):
             return Response({'error': 'Complaint not found'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+        
+    
+class UserDistrictWise(APIView):
+    def get(self,request):
+        districthwise={
+            'Ahmedabad':0,'Amreli':0,'Anand':0,'Aravalli':0,'Banaskantha':0,'Bharuch':0,'Bhavnagar':0,'Botad':0,
+            'Chhota Udaipur':0,'Dahod':0,'Dang':0,'Devbhoomi Dwarka':0,'Gandhinagar':0,'Gir Somnath':0,
+            'Jamnagar':0,'Junagadh':0,'Kachchh':0,'Kheda':0,'Mahisagar':0,'Mehsana':0,'Morbi':0,'Narmada':0,
+            'Navsari':0,'Palanpur':0,'Patan':0,'Porbandar':0,'Rajkot':0,'Sabarkantha':0,'Surat':0,'Surendranagar':0,
+            'Tapi':0,'Vadodara':0,'Valsad':0,'Vav-Tharad':0
+        }
+
+        for dist in districthwise:
+            districthwise[dist]=CustomUser.objects.filter(District=dist).count()
+        return Response(districthwise)
+
+
+class UserMonthlyRegistrations(APIView):
+    def get(self, request):
+        try:
+            from django.db.models import Count
+            from django.db.models.functions import ExtractMonth, ExtractYear
+            import calendar
+            from datetime import datetime
+            
+            # Get current year
+            current_year = datetime.now().year
+            
+            # Initialize monthly data for current year
+            monthly_data = {}
+            for month_num in range(1, 13):
+                month_name = calendar.month_name[month_num]
+                monthly_data[month_name] = 0
+            
+            # Count user registrations by month for current year
+            users_by_month = (
+                CustomUser.objects
+                .filter(created_join__year=current_year)
+                .annotate(month=ExtractMonth('created_join'))
+                .values('month')
+                .annotate(count=Count('id'))
+                .order_by('month')
+            )
+            
+            # Fill in actual counts
+            for item in users_by_month:
+                month_name = calendar.month_name[item['month']]
+                monthly_data[month_name] = item['count']
+            
+            return Response({
+                'year': current_year,
+                'monthly_data': monthly_data,
+                'total_registrations': CustomUser.objects.filter(created_join__year=current_year).count()
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': str(e),
+                'message': 'Failed to fetch monthly user registration statistics'
+            }, status=500)

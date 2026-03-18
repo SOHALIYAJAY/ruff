@@ -53,37 +53,6 @@ export default function ProfilePage() {
             <section className="mb-8">
               <ActivityLog />
             </section>
-
-            {/* Danger Zone - Account Actions */}
-            <section className="mb-8">
-              <div className="bg-white border border-red-200 rounded-lg shadow-md p-6">
-                <h3 className="text-xl font-bold text-red-600 mb-4">Danger Zone</h3>
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-red-200">
-                    <div>
-                      <p className="font-semibold text-slate-900">Download Complaint History</p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        Download a copy of all your complaints and resolution history as PDF
-                      </p>
-                    </div>
-                    <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg whitespace-nowrap transition-colors">
-                      Download
-                    </button>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4">
-                    <div>
-                      <p className="font-semibold text-slate-900">Delete Account</p>
-                      <p className="text-sm text-slate-600 mt-1">
-                        Permanently delete your account and all associated data. This action cannot be undone.
-                      </p>
-                    </div>
-                    <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg whitespace-nowrap transition-colors">
-                      Delete Account
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
           </div>
         </div>
       </div>

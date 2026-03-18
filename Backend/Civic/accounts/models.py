@@ -9,6 +9,7 @@ class CustomUser(AbstractUser, PermissionsMixin):
         ('Department-User', 'Department-User'),
         ('Admin-User', 'Admin-User')
     )
+    name = models.CharField(max_length=100, blank=True, null=True)
     email = models.EmailField(unique=True)
     created_join = models.DateField(default=dt.now)
     password = models.CharField(max_length=200)

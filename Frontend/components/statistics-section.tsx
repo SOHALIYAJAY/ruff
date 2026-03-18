@@ -3,12 +3,6 @@
 import { useEffect, useState } from 'react'
 
 interface StatCard {
-  total_complaints:number
-  Resolved_complaints:number
-  Pending_complaints:number
-  SLA_complaince:number
-  total_categories:number
-  // inprogress_complaints:number
   label: string
   value: number
   icon: string
@@ -21,13 +15,45 @@ export default function StatisticsSection() {
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
   
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/getcompinfo/`)
-      .then((res) => res.json())
+    const token = localStorage.getItem('access_token')
+    const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    
+    if (isTokenValid) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    fetch(`${API_BASE_URL}/api/getcompinfo/`, { headers })
+      .then((res) => {
+        if (!res.ok) {
+          if (res.status === 401) {
+            // If unauthorized, try to get public statistics instead
+            console.warn('Authentication failed, using public statistics')
+            return fetch(`${API_BASE_URL}/api/complaintinfo/`, {
+              headers: { 'Content-Type': 'application/json' }
+            })
+          }
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
       .then((data) => { 
+        console.log('Statistics data:', data)
         setCompinfo(data)
       })
       .catch((error) => {
-        console.error("Error fetching complaints:", error)
+        console.error("Error fetching statistics:", error)
+        // Set default values on error
+        setCompinfo({
+          total_complaints: 0,
+          Resolved_complaints: 0,
+          Pending_complaints: 0,
+          SLA_complaince: 0,
+          total_categories: 0
+        })
       })
   }, [])
 

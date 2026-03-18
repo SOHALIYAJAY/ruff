@@ -109,35 +109,11 @@ export default function DashboardHeader() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back, {user?.first_name || user?.username || 'User'}!
+            Welcome back, {user.name || user?.username || 'User' }!
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your complaints today.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2"
-          >
-            <User className="h-4 w-4" />
-            <span className="sr-only">User menu</span>
-          </button>
-          <button
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 py-2"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="sr-only">Settings</span>
-          </button>
-          <button
-            onClick={() => {
-              localStorage.removeItem('access_token')
-              window.location.href = '/login'
-            }}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2"
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="sr-only">Log out</span>
-          </button>
         </div>
       </div>
     </div>

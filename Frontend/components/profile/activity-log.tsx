@@ -1,7 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
-import { FileText, CheckCircle, UserCheck, LogIn, Zap } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { FileText, CheckCircle, UserCheck, LogIn, Zap, Loader2, ExternalLink } from 'lucide-react'
 
 interface Activity {
   id: string
@@ -12,99 +14,219 @@ interface Activity {
   icon: React.ReactNode
 }
 
-const activities: Activity[] = [
-  {
-    id: '1',
-    type: 'submitted',
-    title: 'Complaint Submitted',
-    description: 'Reported pothole on MG Road',
-    timestamp: '2 hours ago',
-    icon: <FileText className="w-5 h-5" />,
-  },
-  {
-    id: '2',
-    type: 'resolved',
-    title: 'Complaint Resolved',
-    description: 'Water supply issue fixed in Zone 5',
-    timestamp: '1 day ago',
-    icon: <CheckCircle className="w-5 h-5" />,
-  },
-  {
-    id: '3',
-    type: 'updated',
-    title: 'Profile Updated',
-    description: 'Changed mobile number',
-    timestamp: '3 days ago',
-    icon: <UserCheck className="w-5 h-5" />,
-  },
-  {
-    id: '4',
-    type: 'login',
-    title: 'Login',
-    description: 'Successfully logged in from Windows',
-    timestamp: '3 days ago',
-    icon: <LogIn className="w-5 h-5" />,
-  },
-  {
-    id: '5',
-    type: 'submitted',
-    title: 'Complaint Submitted',
-    description: 'Reported street light malfunction',
-    timestamp: '1 week ago',
-    icon: <FileText className="w-5 h-5" />,
-  },
-]
-
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case 'submitted':
-      return 'bg-blue-100 text-blue-600'
-    case 'resolved':
-      return 'bg-green-100 text-green-600'
-    case 'updated':
-      return 'bg-purple-100 text-purple-600'
-    case 'login':
-      return 'bg-yellow-100 text-yellow-600'
-    default:
-      return 'bg-slate-100 text-slate-600'
-  }
-}
-
 export default function ActivityLog() {
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchActivityData = async () => {
+      try {
+        setLoading(true)
+        const token = localStorage.getItem('access_token')
+        if (!token) {
+          console.log('No authentication token found - showing fallback data')
+          return
+        }
+
+        // Fetch user activity from backend
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/user-activity/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const activityData = data.data || data || []
+          
+          // Transform backend data to frontend format
+          const transformedActivities: Activity[] = activityData.map((item: any, index: number) => ({
+            id: item.id || String(index + 1),
+            type: item.type || 'other',
+            title: item.title || 'Activity',
+            description: item.description || 'No description available',
+            timestamp: item.timestamp || new Date().toISOString(),
+            icon: getActivityIcon(item.type)
+          }))
+          
+          setActivities(transformedActivities)
+        } else {
+          throw new Error('Failed to fetch activity data')
+        }
+      } catch (error) {
+        console.error('Error fetching activity data:', error)
+        
+        // Set fallback data for demo
+        const fallbackActivities: Activity[] = [
+          {
+            id: '1',
+            type: 'submitted',
+            title: 'Complaint Submitted',
+            description: 'Reported pothole on MG Road',
+            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+            icon: <FileText className="w-5 h-5" />,
+          },
+          {
+            id: '2',
+            type: 'resolved',
+            title: 'Complaint Resolved',
+            description: 'Water supply issue fixed in Zone 5',
+            timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+            icon: <CheckCircle className="w-5 h-5" />,
+          },
+          {
+            id: '3',
+            type: 'updated',
+            title: 'Profile Updated',
+            description: 'Changed mobile number',
+            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            icon: <UserCheck className="w-5 h-5" />,
+          },
+          {
+            id: '4',
+            type: 'login',
+            title: 'Login',
+            description: 'Successfully logged in from Windows',
+            timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+            icon: <LogIn className="w-5 h-5" />,
+          },
+          {
+            id: '5',
+            type: 'submitted',
+            title: 'Complaint Submitted',
+            description: 'Reported street light malfunction',
+            timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+            icon: <FileText className="w-5 h-5" />,
+          },
+        ]
+        
+        setActivities(fallbackActivities)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchActivityData()
+  }, [])
+
+  const getActivityIcon = (type: string): React.ReactNode => {
+    switch (type) {
+      case 'submitted':
+        return <FileText className="w-5 h-5" />
+      case 'resolved':
+        return <CheckCircle className="w-5 h-5" />
+      case 'updated':
+        return <UserCheck className="w-5 h-5" />
+      case 'login':
+        return <LogIn className="w-5 h-5" />
+      default:
+        return <Zap className="w-5 h-5" />
+    }
+  }
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'submitted':
+        return 'bg-blue-100 text-blue-600'
+      case 'resolved':
+        return 'bg-green-100 text-green-600'
+      case 'updated':
+        return 'bg-purple-100 text-purple-600'
+      case 'login':
+        return 'bg-yellow-100 text-yellow-600'
+      default:
+        return 'bg-slate-100 text-slate-600'
+    }
+  }
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffTime = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+    const diffMinutes = Math.floor(diffTime / (1000 * 60))
+
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    } else if (diffMinutes > 0) {
+      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`
+    } else {
+      return 'Just now'
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="bg-white border border-slate-200 shadow-md p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+          <span className="text-gray-600">Loading activity log...</span>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <Card className="bg-white border border-slate-200 shadow-md p-6">
-      <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-        <Zap className="w-5 h-5 text-blue-600" />
-        Recent Activity
-      </h3>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          <Zap className="w-5 h-5 text-blue-600" />
+          Recent Activity
+        </h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.location.href = '/dashboard'}
+          className="flex items-center gap-2"
+        >
+          <ExternalLink className="w-4 h-4" />
+          View All
+        </Button>
+      </div>
 
       <div className="space-y-4">
-        {activities.map((activity, index) => (
-          <div key={activity.id} className="flex gap-4">
-            {/* Timeline Connector */}
-            <div className="flex flex-col items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getTypeColor(activity.type)}`}>
-                {activity.icon}
-              </div>
-              {index !== activities.length - 1 && (
-                <div className="w-0.5 h-12 bg-slate-300 mt-2"></div>
-              )}
-            </div>
-
-            {/* Activity Content */}
-            <div className="pb-4 flex-1">
-              <h4 className="font-semibold text-slate-900">{activity.title}</h4>
-              <p className="text-sm text-slate-600 mt-1">{activity.description}</p>
-              <p className="text-xs text-slate-500 mt-2">{activity.timestamp}</p>
-            </div>
+        {activities.length === 0 ? (
+          <div className="text-center py-8 text-slate-600">
+            <Zap className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+            <p>No activity found</p>
+            <p className="text-sm">Your recent activities will appear here</p>
           </div>
-        ))}
+        ) : (
+          activities.map((activity, index) => (
+            <div key={activity.id} className="flex gap-4">
+              {/* Timeline Connector */}
+              <div className="flex flex-col items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getTypeColor(activity.type)}`}>
+                  {activity.icon}
+                </div>
+                {index !== activities.length - 1 && (
+                  <div className="w-0.5 h-12 bg-slate-300 mt-2"></div>
+                )}
+              </div>
+
+              {/* Activity Content */}
+              <div className="pb-4 flex-1">
+                <h4 className="font-semibold text-slate-900">{activity.title}</h4>
+                <p className="text-sm text-slate-600 mt-1">{activity.description}</p>
+                <p className="text-xs text-slate-500 mt-2">{formatTimestamp(activity.timestamp)}</p>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="mt-6 pt-6 border-t border-slate-300">
-        <button className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
-          View Full Activity Log →
-        </button>
+        <Button 
+          variant="outline" 
+          className="w-full"
+          onClick={() => window.location.href = '/dashboard'}
+        >
+          View Full Activity Log
+        </Button>
       </div>
     </Card>
   )

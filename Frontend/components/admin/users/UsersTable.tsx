@@ -1,5 +1,5 @@
 import React from 'react'
-import { FileText, Trash2 } from 'lucide-react'
+import { FileText } from 'lucide-react'
 
 export default function UsersTable({ users, sortedUsers, handleViewProfile }: any) {
   return (
@@ -43,9 +43,7 @@ export default function UsersTable({ users, sortedUsers, handleViewProfile }: an
                   <button onClick={() => handleViewProfile(user)} className="p-2 hover:bg-blue-100 rounded-lg transition-colors" title="View">
                     <FileText className="w-4 h-4 text-blue-600" />
                   </button>
-                  <button className="p-2 hover:bg-red-100 rounded-lg transition-colors" title="Delete">
-                    <Trash2 className="w-4 h-4 text-red-600" />
-                  </button>
+                  {/* Delete button removed - no longer available */}
                 </div>
               </td>
             </tr>

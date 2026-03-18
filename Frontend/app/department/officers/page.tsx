@@ -76,6 +76,7 @@ export default function DepartmentOfficersPage() {
       <OfficersTable
         onViewProfile={(officerId) => setProfileOfficerId(officerId)}
         onAssignComplaint={() => {}}
+        onEditOfficer={() => {}}
       />
 
       {/* Profile Modal */}

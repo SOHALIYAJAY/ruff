@@ -24,6 +24,7 @@ interface ComplaintsTableProps {
   selectedDepartment: string
   selectedStatus: string
   selectedPriority: string
+  selectedDateRange: string
   departments: Array<{ id: number; name: string }>
   onView: (complaint: Complaint) => void
   onUpdate: (complaint: Complaint) => void
@@ -37,6 +38,7 @@ export default function ComplaintsTable({
   selectedDepartment,
   selectedStatus,
   selectedPriority,
+  selectedDateRange,
   departments,
   onView,
   onUpdate,
@@ -45,19 +47,17 @@ export default function ComplaintsTable({
   // Filter complaints based on all filter criteria
   const filteredComplaints = complaints.filter((complaint) => {
     // Search filter - handle undefined values safely
-    // Category may be returned as an object name in `category_name` or as `Category` string/number
     const complaintCategory = (complaint as any).category_name || (complaint as any).Category || ''
     const matchesSearch = searchQuery === '' || 
       (complaint.id && complaint.id.toString().includes(searchQuery.toLowerCase())) ||
       (complaint.title && complaint.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (complaint.id && complaint.id.toString().toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (complaintCategory && String(complaintCategory).toLowerCase().includes(searchQuery.toLowerCase()))
+      (complaintCategory && String(complaintCategory).toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (complaint.location_address && complaint.location_address.toLowerCase().includes(searchQuery.toLowerCase()))
     
     // Department filter - handle undefined values safely
-    // selectedDepartment may be an id string (from select value) or a department name.
     let selectedDeptName: string | undefined = undefined
     if (selectedDepartment && selectedDepartment !== 'all') {
-      // try resolve by id
       const byId = departments.find(d => d.id.toString() === selectedDepartment)
       selectedDeptName = byId ? byId.name : selectedDepartment
     }
@@ -70,7 +70,36 @@ export default function ComplaintsTable({
     // Priority filter - handle undefined values safely
     const matchesPriority = selectedPriority === 'all' || (complaint.priority_level && complaint.priority_level === selectedPriority)
     
-    return matchesSearch && matchesDepartment && matchesStatus && matchesPriority
+    // Date range filter
+    let matchesDateRange = true
+    if (selectedDateRange !== 'all' && complaint.current_time) {
+      const complaintDate = new Date(complaint.current_time)
+      const now = new Date()
+      
+      switch (selectedDateRange) {
+        case 'today':
+          matchesDateRange = complaintDate.toDateString() === now.toDateString()
+          break
+        case 'week':
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          matchesDateRange = complaintDate >= weekAgo
+          break
+        case 'month':
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+          matchesDateRange = complaintDate >= monthAgo
+          break
+        case 'quarter':
+          const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+          matchesDateRange = complaintDate >= quarterAgo
+          break
+        case 'year':
+          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+          matchesDateRange = complaintDate >= yearAgo
+          break
+      }
+    }
+    
+    return matchesSearch && matchesDepartment && matchesStatus && matchesPriority && matchesDateRange
   })
 
   return (

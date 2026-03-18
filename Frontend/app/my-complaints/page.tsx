@@ -51,14 +51,35 @@ export default function MyComplaintsPage() {
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
+        const token = localStorage.getItem('access_token')
+        const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
+        
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+        
+        if (isTokenValid) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        
         const res = await fetch(`${API_BASE}/api/getcomplaint/`, {
-          headers: { Accept: 'application/json' },
+          headers,
           mode: 'cors',
         })
   
         if (!res.ok) {
           const text = await res.text()
           console.error('API Error Response:', text?.substring?.(0, 500) ?? text)
+          
+          if (res.status === 401) {
+            console.warn('Authentication failed, clearing invalid token')
+            localStorage.removeItem('access_token')
+            // Redirect to login or show empty state
+            setComplaints([])
+            return
+          }
+          
           throw new Error(`API returned ${res.status}`)
         }
   

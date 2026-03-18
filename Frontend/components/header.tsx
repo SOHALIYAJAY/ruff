@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, LogOut, User } from 'lucide-react'
+import { Menu, X, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import GoogleProvider from './GoogleProvider'
 import GoogleLoginBtn from './GoogleLoginBtn'
@@ -43,15 +43,6 @@ export default function Header() {
     window.addEventListener('storage', handleStorageChange)
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
-
-  const handleLogout = () => {
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    localStorage.removeItem('user')
-    setIsLoggedIn(false)
-    setUser(null)
-    window.location.href = '/'
-  }
 
   const navItems = [
     { label: 'Home', href: '/' },
@@ -119,16 +110,9 @@ export default function Header() {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
-                  <User className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">
-                    {user?.first_name || user?.username || 'User'}
-                  </span>
-                </div>
-                <Button variant="outline" size="sm" onClick={handleLogout}>
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Logout
-                </Button>
+                <Link href="/profile" className="flex items-center justify-center w-10 h-10 bg-primary rounded-full hover:bg-primary/90 transition-colors">
+                  <User className="w-5 h-5 text-white" />
+                </Link>
               </>
             )}
             <Link href="/raise-complaint">
@@ -186,16 +170,9 @@ export default function Header() {
                 </>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg flex-1">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">
-                      {user?.first_name || user?.username || 'User'}
-                    </span>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="flex-1">
-                    <LogOut className="w-4 h-4 mr-1" />
-                    Logout
-                  </Button>
+                  <Link href="/profile" className="flex items-center justify-center w-10 h-10 bg-primary rounded-full hover:bg-primary/90 transition-colors">
+                    <User className="w-5 h-5 text-white" />
+                  </Link>
                 </>
               )}
               <Link href="/raise-complaint" className="flex-1" onClick={() => setIsMenuOpen(false)}>

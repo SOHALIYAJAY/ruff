@@ -10,7 +10,7 @@ class CustomUserAdmin(admin.ModelAdmin):
     # form = CustomUserChangeForm
     # model = CustomUser
 
-    list_display = ("email", "username", "User_Role","mobile_number","address","district","taluka","ward_number","created_join", "is_staff")
+    list_display = ("name","email", "username", "User_Role","mobile_number","address","district","taluka","ward_number","created_join", "is_staff")
 
     # fieldsets = (
     #     (None, {"fields": ("email", "username", "password")}),

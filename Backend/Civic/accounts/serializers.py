@@ -68,3 +68,17 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    complaint_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CustomUser
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'User_Role', 
+                  'is_active', 'created_join', 'last_login', 'complaint_count']
+        read_only_fields = ['id', 'created_join', 'last_login']
+    
+    def get_complaint_count(self, obj):
+        from complaints.models import Complaint
+        return Complaint.objects.filter(user=obj).count()

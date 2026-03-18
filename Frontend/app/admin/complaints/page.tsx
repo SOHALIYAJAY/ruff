@@ -36,6 +36,7 @@ export default function AllComplaintsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedPriority, setSelectedPriority] = useState('all')
+  const [selectedDateRange, setSelectedDateRange] = useState('all')
 
   // State for data
   const [kpi, setKpi] = useState<KPIData>({
@@ -241,6 +242,7 @@ export default function AllComplaintsPage() {
     setSelectedDepartment('all')
     setSelectedStatus('all')
     setSelectedPriority('all')
+    setSelectedDateRange('all')
   }
 
   const handleRefreshKPI = async () => {
@@ -308,6 +310,8 @@ export default function AllComplaintsPage() {
         setSelectedStatus={setSelectedStatus}
         selectedPriority={selectedPriority}
         setSelectedPriority={setSelectedPriority}
+        selectedDateRange={selectedDateRange}
+        setSelectedDateRange={setSelectedDateRange}
       />
 
       {/* Complaints Table */}
@@ -318,6 +322,7 @@ export default function AllComplaintsPage() {
         selectedDepartment={selectedDepartment}
         selectedStatus={selectedStatus}
         selectedPriority={selectedPriority}
+        selectedDateRange={selectedDateRange}
         departments={departments}
         onView={handleViewComplaint}
         onUpdate={handleUpdateComplaint}

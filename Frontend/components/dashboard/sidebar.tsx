@@ -63,7 +63,7 @@ export default function DashboardSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-auto lg:self-stretch lg:w-64 overflow-y-auto ${
+        className={`fixed left-0 top-0 h-screen w-56 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-auto lg:self-stretch lg:w-56 overflow-y-auto ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
