@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { X, CheckCircle, Clock, MessageSquare, Share2, MapPin, Calendar, User, FileText, AlertCircle, Download, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
 
 interface Complaint {
   id: string
@@ -34,7 +33,6 @@ export default function ComplaintDetailsModal({ complaint, onClose }: { complain
   const [copiedLink, setCopiedLink] = useState(false)
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
-  const router = useRouter()
 
   if (!complaint) return null
 
@@ -402,13 +400,12 @@ ${complaint.estimated_resolution ? `ESTIMATED RESOLUTION: ${complaint.estimated_
                   <p className="text-sm text-gray-600 mb-4">
                     If you have any questions about this complaint or need further assistance, please contact our support team.
                   </p>
-                  <Button 
-                    variant="outline" 
-                    className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
-                    onClick={() => router.push('/contact')}
+                  <a 
+                    href="/contact"
+                    className="inline-flex items-center justify-center rounded-md border border-yellow-300 text-yellow-700 hover:bg-yellow-100 px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                   >
                     Contact Support
-                  </Button>
+                  </a>
                 </div>
               </div>
             )}
