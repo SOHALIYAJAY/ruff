@@ -7,7 +7,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from google.oauth2 import id_token
 from google.auth.transport import requests
-from accounts.serializers import UserRegister
+from accounts.serializers import UserRegister, UserDetailSerializer, UserUpdateSerializer
 from complaints.models import Complaint
 
 class LoginView(APIView):
@@ -134,16 +134,45 @@ class UserDetail(APIView):
     def get(self, request):
         try:
             user = request.user
-            total_complaints = Complaint.objects.filter(user=user).count()
+            serializer = UserDetailSerializer(user)
             return Response({
-                'id': user.id,
-                'Username': user.username,
-                'email': user.email,
-                'Date': user.date_joined.strftime('%Y-%m-%d') if hasattr(user, 'date_joined') else None,
-                'role': user.User_Role if hasattr(user, 'User_Role') else 'Civic-User',
-                'total_complaints': total_complaints
+                "success": True,
+                "data": serializer.data
             })
         except Exception as e:
-            return Response({'error': str(e)}, status=500)
+            return Response({
+                "success": False,
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+class UpdateUserDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        try:
+            user = request.user
+            serializer = UserUpdateSerializer(user, data=request.data, partial=True)
+            
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "message": "User details updated successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "success": False,
+                    "message": "Validation failed",
+                    "errors": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request):
+        return self.patch(request)

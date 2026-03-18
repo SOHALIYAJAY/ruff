@@ -8,21 +8,17 @@ import { MapPin, Upload, X, AlertCircle, Play } from 'lucide-react'
 
 const ComplaintMap = dynamic(() => import('./complaint-map'), { ssr: false })
 
-// ↩️ REVERTED TO ORIGINAL
+// Categories matching database
 const categories = [
-  { value: 'ROADS', label: 'Roads & Infrastructure' },
-  { value: 'TRAFFIC', label: 'Traffic & Road Safety' },
-  { value: 'WATER', label: 'Water Supply' },
-  { value: 'SEWERAGE', label: 'Sewerage & Drainage' },
-  { value: 'SANITATION', label: 'Sanitation & Garbage' },
-  { value: 'LIGHTING', label: 'Street Lighting' },
-  { value: 'PARKS', label: 'Parks & Public Spaces' },
-  { value: 'ANIMALS', label: 'Stray Animals' },
-  { value: 'ILLEGAL_CONSTRUCTION', label: 'Illegal Construction' },
-  { value: 'ENCROACHMENT', label: 'Encroachment' },
-  { value: 'PROPERTY_DAMAGE', label: 'Public Property Damage' },
-  { value: 'ELECTRICITY', label: 'Electricity & Power Issues' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'Illegal Construction', label: 'Illegal Construction' },
+  { value: 'Encroachment', label: 'Encroachment' },
+  { value: 'Public Property Damage', label: 'Public Property Damage' },
+  { value: 'Electricity & Power Issues', label: 'Electricity & Power Issues' },
+  { value: 'Other', label: 'Other' },
+  { value: 'Parks & Public Spaces', label: 'Parks & Public Spaces' },
+  { value: 'Street Lighting', label: 'Street Lighting' },
+  { value: 'Stray Animals', label: 'Stray Animals' },
+  { value: 'Sanitation & Garbage', label: 'Sanitation & Garbage' }
 ]
 
 const districts = [
@@ -235,11 +231,19 @@ export default function RaiseComplaintForm() {
       
       while (retryCount <= maxRetries) {
         try {
+          // Get authentication token
+          const token = localStorage.getItem('access_token')
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json"
+          }
+          
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`
+          }
+          
           response = await fetch(endpoint, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
+            headers: headers,
             body: JSON.stringify(submitData) 
           })
           

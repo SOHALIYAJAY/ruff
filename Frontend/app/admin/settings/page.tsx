@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import {
-  User, Lock, Bell, Shield, Database, Globe,
+  User, Lock, Shield, Globe,
   Save, Eye, EyeOff, ChevronRight, LayoutDashboard,
   Settings, Mail, Phone, Camera, AlertTriangle, CheckCircle
 } from "lucide-react"
@@ -10,8 +10,6 @@ import {
 const tabs = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "system", label: "System", icon: Database },
 ]
 
 export default function AdminSettingsPage() {
@@ -26,24 +24,6 @@ export default function AdminSettingsPage() {
     phone: "+91 98765 00000",
     role: "Super Administrator",
     department: "IT & Administration",
-  })
-
-  const [notifications, setNotifications] = useState({
-    newComplaint: true,
-    complaintResolved: true,
-    officerAssigned: false,
-    weeklyReport: true,
-    systemAlerts: true,
-    emailDigest: false,
-  })
-
-  const [system, setSystem] = useState({
-    maintenanceMode: false,
-    allowRegistration: true,
-    autoAssign: false,
-    slaAlerts: true,
-    defaultSla: "72",
-    maxFileSize: "10",
   })
 
   const handleSave = () => {
@@ -266,126 +246,6 @@ export default function AdminSettingsPage() {
                       )}
                     </div>
                   ))}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* NOTIFICATIONS TAB */}
-          {activeTab === "notifications" && (
-            <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-              <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Notification Preferences</h2>
-              <div className="space-y-1">
-                {[
-                  { key: "newComplaint", label: "New Complaint Submitted", desc: "Get notified when a new complaint is raised" },
-                  { key: "complaintResolved", label: "Complaint Resolved", desc: "Get notified when a complaint is marked resolved" },
-                  { key: "officerAssigned", label: "Officer Assigned", desc: "Get notified when an officer is assigned" },
-                  { key: "weeklyReport", label: "Weekly Summary Report", desc: "Receive weekly performance summary" },
-                  { key: "systemAlerts", label: "System Alerts", desc: "Critical system and security alerts" },
-                  { key: "emailDigest", label: "Email Digest", desc: "Daily email digest of all activities" },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between p-3.5 rounded-lg hover:bg-[#f8fafc] transition-colors">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                      <p className="text-xs text-slate-500">{item.desc}</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key as keyof typeof notifications] })}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${
-                        notifications[item.key as keyof typeof notifications] ? "bg-[#1e40af]" : "bg-slate-200"
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifications[item.key as keyof typeof notifications] ? "translate-x-5" : "translate-x-0.5"
-                      }`} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* SYSTEM TAB */}
-          {activeTab === "system" && (
-            <>
-              <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">System Configuration</h2>
-                <div className="space-y-1">
-                  {[
-                    { key: "maintenanceMode", label: "Maintenance Mode", desc: "Temporarily disable public access to the portal" },
-                    { key: "allowRegistration", label: "Allow User Registration", desc: "Allow new civic users to register" },
-                    { key: "autoAssign", label: "Auto-Assign Complaints", desc: "Automatically assign complaints to available officers" },
-                    { key: "slaAlerts", label: "SLA Breach Alerts", desc: "Alert when complaints exceed SLA time limits" },
-                  ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between p-3.5 rounded-lg hover:bg-[#f8fafc] transition-colors">
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                        <p className="text-xs text-slate-500">{item.desc}</p>
-                      </div>
-                      <button
-                        onClick={() => setSystem({ ...system, [item.key]: !system[item.key as keyof typeof system] })}
-                        className={`relative w-11 h-6 rounded-full transition-colors ${
-                          system[item.key as keyof typeof system] ? "bg-[#1e40af]" : "bg-slate-200"
-                        }`}
-                      >
-                        <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          system[item.key as keyof typeof system] ? "translate-x-5" : "translate-x-0.5"
-                        }`} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Default Values</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Default SLA (hours)</label>
-                    <input
-                      type="number"
-                      value={system.defaultSla}
-                      onChange={(e) => setSystem({ ...system, defaultSla: e.target.value })}
-                      className="w-full border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm bg-[#f8fafc] text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20 focus:border-[#3b82f6]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Max File Upload Size (MB)</label>
-                    <input
-                      type="number"
-                      value={system.maxFileSize}
-                      onChange={(e) => setSystem({ ...system, maxFileSize: e.target.value })}
-                      className="w-full border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm bg-[#f8fafc] text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20 focus:border-[#3b82f6]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Danger Zone */}
-              <div className="bg-red-50 border border-red-200 rounded-lg p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                  <h2 className="text-sm font-semibold text-red-700">Danger Zone</h2>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-100">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Clear All Complaints</p>
-                      <p className="text-xs text-slate-500">Permanently delete all complaint records</p>
-                    </div>
-                    <button className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                      Clear Data
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-100">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Reset System Settings</p>
-                      <p className="text-xs text-slate-500">Reset all settings to factory defaults</p>
-                    </div>
-                    <button className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                      Reset
-                    </button>
-                  </div>
                 </div>
               </div>
             </>

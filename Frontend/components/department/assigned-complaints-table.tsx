@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import api from '@/lib/axios'
 import {
   Search,
@@ -20,6 +21,8 @@ import {
   ArrowUpRight,
   Upload,
 } from "lucide-react"
+
+import ViewDetailsButton from "./view-details-modal"
 
 export interface Complaint {
   id: number
@@ -89,6 +92,7 @@ export default function AssignedComplaintsTable({
   onViewDetails: (complaint: Complaint) => void
   initialView?: "list" | "category"
 }) {
+  const router = useRouter()
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -113,6 +117,15 @@ export default function AssignedComplaintsTable({
     try {
       const response = await api.get("/api/getcomplaint/")
       console.debug('API /api/getcomplaint/ response:', response.data)
+      
+      // Log the structure of the first complaint to check if it has an id
+      if (response.data && response.data.length > 0) {
+        console.log('First complaint structure:', response.data[0])
+        console.log('First complaint id:', response.data[0].id)
+        console.log('First complaint type:', typeof response.data[0])
+        console.log('All complaint IDs:', response.data.map((c: any) => c.id))
+      }
+      
       setComplaints(response.data)
     } catch (error) {
       console.error('Error fetching complaints:', error)
@@ -255,25 +268,7 @@ export default function AssignedComplaintsTable({
               {filtered.length} complaints assigned to department
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode("category")}
-                className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-                  viewMode === "category" ? "bg-white text-[#1e40af] shadow-sm" : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                By Category
-              </button>
-            </div>
-            <button 
-              onClick={fetchComplaints}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-slate-50 rounded-lg hover:bg-slate-100 border border-[#e2e8f0] transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-          </div>
+     
         </div>
 
         {/* Filter row */}
@@ -312,7 +307,6 @@ export default function AssignedComplaintsTable({
             className="text-sm border border-[#e2e8f0] rounded-lg px-3 py-2 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-[#1e40af]/20"
           >
             <option value="All">All Priority</option>
-            <option value="Critical">Critical</option>
             <option value="High">High</option>
             <option value="Medium">Medium</option>
             <option value="Low">Low</option>
@@ -328,15 +322,6 @@ export default function AssignedComplaintsTable({
               <option key={cat} value={cat}>{cat === "All" ? "All Categories" : cat}</option>
             ))}
           </select>
-
-          {/* Sort */}
-          <button
-            onClick={() => setSortOrder(sortOrder === "latest" ? "oldest" : "latest")}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 bg-white border border-[#e2e8f0] rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            {sortOrder === "latest" ? <SortDesc className="w-4 h-4" /> : <SortAsc className="w-4 h-4" />}
-            {sortOrder === "latest" ? "Latest" : "Oldest"}
-          </button>
         </div>
       </div>
 
@@ -463,8 +448,30 @@ export default function AssignedComplaintsTable({
                 <td className="px-4 py-3.5 text-slate-500 text-xs hidden md:table-cell">{c.current_time}</td>
                 <td className="px-4 py-3.5">
                   <div className="flex items-center justify-center gap-0.5">
-                    <button title="View Details" onClick={() => onViewDetails(c)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
-                      <Eye className="w-4 h-4" />
+                    <ViewDetailsButton complaint={c} />
+                    
+                    {/* Simple test button */}
+                    <button
+                      onClick={() => {
+                        console.log('Test clicked - Complaint ID:', c.id)
+                        alert(`Test: Complaint ID is ${c.id}`)
+                      }}
+                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="Test Click"
+                    >
+                      Test
+                    </button>
+                    
+                    {/* Direct navigation test */}
+                    <button
+                      onClick={() => {
+                        console.log('Direct navigation - Complaint ID:', c.id)
+                        window.location.href = `/department/complaint-details/${c.id}`
+                      }}
+                      className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                      title="Direct Navigation Test"
+                    >
+                      Go
                     </button>
                     
                     {c.is_assignd ? (

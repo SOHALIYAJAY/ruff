@@ -30,16 +30,50 @@ const priorityConfig = {
 
 export default function ActivityFeed() {
   const [complaints, setComplaints] = useState<Complaint[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 useEffect(() => {
-  fetch(`${API_BASE_URL}/api/getcomplaintlimit/`)
-    .then((res) => res.json())
+  setLoading(true)
+  const token = localStorage.getItem('access_token')
+  setIsLoggedIn(!!token)
+  
+  // If user is logged in, show their complaints; otherwise show public complaints
+  const endpoint = token ? `${API_BASE_URL}/api/getcomplaintlimit/` : `${API_BASE_URL}/api/getpubliccomplaints/`
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+  
+  fetch(endpoint, { headers })
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
+      return res.json()
+    })
     .then((data) => { 
-      setComplaints(data)
+      console.log('Activity feed data:', data)
+      // Handle different response structures
+      if (Array.isArray(data)) {
+        setComplaints(data)
+      } else if (data && Array.isArray(data.results)) {
+        setComplaints(data.results)
+      } else {
+        console.warn('Unexpected data format:', data)
+        setComplaints([])
+      }
     })
     .catch((error) => {
       console.error("Error fetching complaints:", error)
+      setComplaints([])
+    })
+    .finally(() => {
+      setLoading(false)
     })
 }, [])
   return (
@@ -47,15 +81,56 @@ useEffect(() => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            Live Complaint Activity
+            {isLoggedIn ? "Your Complaints" : "Live Complaint Activity"}
           </h2>
           <p className="text-lg text-muted-foreground">
-            Real-time dashboard showing recent civic complaints and their status
+            {isLoggedIn 
+              ? "Track the status of your submitted civic complaints"
+              : "Real-time dashboard showing recent civic complaints and their status"
+            }
           </p>
         </div>
 
         <div className="grid gap-4">
-          {complaints.map((complaint, index) => {
+          {loading ? (
+            // Loading state
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={`loading-${index}`} className="bg-white rounded-lg border border-border p-6">
+                <div className="animate-pulse">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-6 h-6 bg-gray-200 rounded-full"></div>
+                    <div className="h-5 bg-gray-200 rounded w-1/3"></div>
+                  </div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
+                  <div className="flex gap-2">
+                    <div className="h-6 bg-gray-200 rounded w-20"></div>
+                    <div className="h-6 bg-gray-200 rounded w-16"></div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : complaints.length === 0 ? (
+            // Empty state
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📋</div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                {isLoggedIn ? "You haven't raised any complaints yet" : "No complaints yet"}
+              </h3>
+              <p className="text-muted-foreground">
+                {isLoggedIn 
+                  ? "Start by reporting a civic issue in your area!" 
+                  : "Be the first to raise a civic issue in your area!"
+                }
+              </p>
+              <Link href="/raise-complaint" className="inline-block mt-4">
+                <button className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                  {isLoggedIn ? "Raise Your First Complaint" : "Raise a Complaint"}
+                </button>
+              </Link>
+            </div>
+          ) : (
+            // Complaints list
+            complaints.map((complaint, index) => {
             // Create a unique key using multiple fields to ensure uniqueness
             const uniqueKey = complaint.id || 
               `${complaint.title}-${complaint.Category}-${index}`.replace(/\s+/g, '-').toLowerCase();
@@ -115,7 +190,8 @@ useEffect(() => {
               </div>
             </div>
             );
-          })}
+          })
+          )}
         </div>
 
         <div className="mt-8 text-center">

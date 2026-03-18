@@ -31,18 +31,22 @@ export default function HeroSection() {
               Transparent Governance. Citizen Empowerment. Smart Solutions.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href='/raise-complaint'>
               <Button
                 size="lg"
                 className="bg-accent text-accent-foreground hover:bg-yellow-500 font-semibold gap-2"
               >
                 Raise Complaint Now <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button
-                size="lg"
-                className="bg-white/20 backdrop-blur text-white hover:bg-white/30 font-semibold border border-white/30"
-              >
-                Track Complaint
-              </Button>
+              </Link>
+              <Link href='/track-complaint'>
+                <Button
+                  size="lg"
+                  className="bg-white/20 backdrop-blur text-white hover:bg-white/30 font-semibold border border-white/30"
+                >
+                  Track Complaint
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

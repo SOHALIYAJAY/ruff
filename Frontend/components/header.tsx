@@ -1,16 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import GoogleProvider from './GoogleProvider'
 import GoogleLoginBtn from './GoogleLoginBtn'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<any>(null)
   const pathname = usePathname()
+
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    const userData = localStorage.getItem('user')
+    
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    } else {
+      setIsLoggedIn(false)
+      setUser(null)
+    }
+
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('access_token')
+      const newUserData = localStorage.getItem('user')
+      
+      if (newToken && newUserData) {
+        setIsLoggedIn(true)
+        setUser(JSON.parse(newUserData))
+      } else {
+        setIsLoggedIn(false)
+        setUser(null)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
+    setIsLoggedIn(false)
+    setUser(null)
+    window.location.href = '/'
+  }
 
   const navItems = [
     { label: 'Home', href: '/' },
@@ -60,9 +101,36 @@ export default function Header() {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-            <GoogleProvider>
-              <GoogleLoginBtn />
-            </GoogleProvider>
+            {!isLoggedIn ? (
+              <>
+                <GoogleProvider>
+                  <GoogleLoginBtn />
+                </GoogleProvider>
+                <Link href="/login">
+                  <Button variant="outline" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" className="bg-primary hover:bg-primary/90">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">
+                    {user?.first_name || user?.username || 'User'}
+                  </span>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Logout
+                </Button>
+              </>
+            )}
             <Link href="/raise-complaint">
               <Button size="sm" className="bg-accent hover:bg-yellow-500 text-accent-foreground font-semibold">
                 Raise Complaint
@@ -100,9 +168,36 @@ export default function Header() {
               </Link>
             ))}
             <div className="flex items-center gap-2 pt-3 border-t border-border mt-2">
-              <GoogleProvider>
-                <GoogleLoginBtn />
-              </GoogleProvider>
+              {!isLoggedIn ? (
+                <>
+                  <GoogleProvider>
+                    <GoogleLoginBtn />
+                  </GoogleProvider>
+                  <Link href="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/signup" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-lg flex-1">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {user?.first_name || user?.username || 'User'}
+                    </span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="flex-1">
+                    <LogOut className="w-4 h-4 mr-1" />
+                    Logout
+                  </Button>
+                </>
+              )}
               <Link href="/raise-complaint" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                 <Button size="sm" className="w-full bg-accent hover:bg-yellow-500 text-accent-foreground font-semibold">
                   Raise Complaint

@@ -7,6 +7,9 @@ import OfficersTable from "@/components/admin/officers/officers-table"
 import OfficerProfileModal from "@/components/admin/officers/officer-profile-modal"
 import AddOfficerModal from "@/components/department/add-officer-modal"
 import OfficersAnalytics from "@/components/department/officers-analytics"
+import EditOfficerModal from "@/components/admin/officers/edit-officer-modal"
+import DeleteOfficerModal from "@/components/admin/officers/delete-officer-modal"
+import { Officer } from "@/components/admin/officers/officers-table"
 
 export default function AdminOfficersPage() {
   const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
@@ -14,6 +17,35 @@ export default function AdminOfficersPage() {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
+  const [editingOfficer, setEditingOfficer] = useState<Officer | null>(null)
+  const [deletingOfficer, setDeletingOfficer] = useState<Officer | null>(null)
+
+  const handleEditOfficer = (officer: Officer) => {
+    setEditingOfficer(officer)
+  }
+
+  const handleDeleteOfficer = (officerId: string) => {
+    // Find the officer from the table data
+    // This is a simplified approach - in real implementation, you'd get the full officer object
+    const officer: Officer = {
+      officer_id: officerId,
+      name: '', // This would be populated from the table data
+      email: '',
+      phone: '',
+      is_available: true
+    }
+    setDeletingOfficer(officer)
+  }
+
+  const handleSaveOfficer = (updatedOfficer: Officer) => {
+    // Refresh the officers table
+    window.location.reload()
+  }
+
+  const handleConfirmDelete = () => {
+    // Refresh the officers table
+    window.location.reload()
+  }
 
   return (
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
@@ -83,8 +115,10 @@ export default function AdminOfficersPage() {
 
       {/* Officers Table */}
       <OfficersTable
-        onViewProfile={(officerId) => setProfileOfficerId(officerId)}
+        onViewProfile={(id) => setProfileOfficerId(id)}
         onAssignComplaint={() => {}}
+        onEditOfficer={handleEditOfficer}
+        onDeleteOfficer={handleDeleteOfficer}
       />
 
       {/* Profile Modal */}
@@ -93,6 +127,26 @@ export default function AdminOfficersPage() {
           officerId={profileOfficerId}
           open={!!profileOfficerId}
           onClose={() => setProfileOfficerId(null)}
+        />
+      )}
+
+      {/* Edit Officer Modal */}
+      {editingOfficer && (
+        <EditOfficerModal
+          officer={editingOfficer}
+          isOpen={!!editingOfficer}
+          onClose={() => setEditingOfficer(null)}
+          onSave={handleSaveOfficer}
+        />
+      )}
+
+      {/* Delete Officer Modal */}
+      {deletingOfficer && (
+        <DeleteOfficerModal
+          officer={deletingOfficer}
+          isOpen={!!deletingOfficer}
+          onClose={() => setDeletingOfficer(null)}
+          onDelete={handleConfirmDelete}
         />
       )}
 

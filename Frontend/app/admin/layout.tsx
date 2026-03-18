@@ -87,8 +87,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         {/* Footer */}
-        <div className="p-3 border-t border-[#E2E8F0] space-y-1">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[#64748B] hover:bg-[#F8FAFC] transition-all">
+        <div className="p-3 border-t border-[#E2E8F0]">
+          <button 
+            onClick={() => router.push('/admin/logout')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium"
+          >
             <LogOut className="w-5 h-5" />
             {sidebarOpen && <span className="text-sm">Logout</span>}
           </button>
@@ -125,7 +128,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
 
               {/* Profile */}
-              <div className="flex items-center gap-3 pl-4 border-l border-[#E2E8F0]">
+              <button 
+                onClick={() => router.push('/admin/settings')}
+                className="flex items-center gap-3 pl-4 border-l border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors"
+              >
                 <div className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-semibold text-sm">
                   AD
                 </div>
@@ -133,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <p className="text-sm font-medium text-[#1E293B]">Admin</p>
                   <p className="text-xs text-[#64748B]">Administrator</p>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </header>

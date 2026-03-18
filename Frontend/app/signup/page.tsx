@@ -48,7 +48,7 @@ export default function SignupPage() {
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
-        window.location.href = '/dashboard'
+        window.location.href = '/user-details'
       } else {
         setError(data.message || 'Registration failed')
       }

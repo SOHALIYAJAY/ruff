@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, TrendingDown, Users, BarChart3 } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { getDashboardKPIs, DashboardKPI } from '../../services/dashboardService'
+import ComplaintStatusChart from '../../components/admin/dashboard/ComplaintStatusChart'
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState('overview')
@@ -230,30 +231,7 @@ export default function AdminDashboard() {
         {/* Charts and Overview Row - Blocks 2, 3, 4 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Status Donut - Block 2 */}
-          <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Complaint Status Distribution</h3>
-            <div className="flex items-center gap-6">
-              <ResponsiveContainer width={200} height={220}>
-                <PieChart>
-                  <Pie data={complaintStatusData.filter(d => d.value > 0)} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                    {complaintStatusData.filter(d => d.value > 0).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any, name: any) => [`${value} complaints`, name]} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-col gap-3">
-                {complaintStatusData.map((entry) => (
-                  <div key={entry.name} className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-                    <span className="text-sm text-slate-600">{entry.name}</span>
-                    <span className="ml-auto text-sm font-semibold text-slate-800 pl-4">{entry.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ComplaintStatusChart />
 
           {/* Categories Pie - Block 3 */}
           <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">

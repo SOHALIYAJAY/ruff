@@ -13,6 +13,11 @@ class CustomUser(AbstractUser, PermissionsMixin):
     created_join = models.DateField(default=dt.now)
     password = models.CharField(max_length=200)
     User_Role = models.CharField(choices=CHOICE_FIELDS, max_length=200)
+    mobile_number = models.CharField(max_length=10, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    district = models.CharField(max_length=100, blank=True, null=True)
+    taluka = models.CharField(max_length=100, blank=True, null=True)
+    ward_number = models.CharField(max_length=10, blank=True, null=True)
     objects = CustomUserManager()
 
     USERNAME_FIELD = "email"
@@ -20,3 +25,4 @@ class CustomUser(AbstractUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+    

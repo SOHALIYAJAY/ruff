@@ -287,24 +287,6 @@ export default function AllComplaintsPage() {
             <h1 className="text-3xl font-bold text-slate-900">All Complaints</h1>
             <p className="text-slate-600 mt-1">Manage and monitor all civic complaints</p>
           </div>
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              <Filter className="w-4 h-4 text-slate-600" />
-              Filters
-            </button>
-            <button 
-              onClick={handleRefresh}
-              disabled={loadingKPI || loadingComplaints}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingKPI || loadingComplaints ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              <Download className="w-4 h-4 text-slate-600" />
-              Export
-            </button>
-          </div>
         </div>
       </div>
 

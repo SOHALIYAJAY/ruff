@@ -15,6 +15,11 @@ class ComplaintSerializer(serializers.ModelSerializer):
         if 'image_video' in validated_data and not validated_data['image_video']:
             validated_data.pop('image_video')
         
+        # Automatically associate the complaint with the authenticated user
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        
         complaint = Complaint.objects.create(**validated_data)
         return complaint
 

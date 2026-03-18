@@ -67,28 +67,6 @@ export default function Footer() {
               </li>
             </ul>
           </div>
-
-          {/* Social Media */}
-          <div>
-            <h4 className="font-bold text-lg mb-4">Follow Us</h4>
-            <div className="flex gap-4">
-              {[
-                { icon: Facebook, label: 'Facebook' },
-                { icon: Twitter, label: 'Twitter' },
-                { icon: Linkedin, label: 'LinkedIn' },
-                { icon: Instagram, label: 'Instagram' },
-              ].map(({ icon: Icon, label }) => (
-                <Link
-                  key={label}
-                  href="#"
-                  className="w-10 h-10 rounded-full bg-primary-foreground/10 hover:bg-accent hover:text-accent-foreground flex items-center justify-center transition-all duration-300 group"
-                  aria-label={label}
-                >
-                  <Icon className="w-5 h-5" />
-                </Link>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Bottom Footer */}

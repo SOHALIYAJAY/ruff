@@ -93,8 +93,8 @@ export default function DepartmentLayout({ children }: { children: React.ReactNo
         {/* Sidebar footer */}
         <div className="px-3 py-3 border-t border-[#E2E8F0]">
           <button
-            onClick={() => router.push("/logout")}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#64748B] hover:bg-red-50 hover:text-[#EF4444] transition-all text-sm"
+            onClick={() => router.push("/department/logout")}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium"
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             {sidebarOpen && <span>Logout</span>}
@@ -148,7 +148,7 @@ export default function DepartmentLayout({ children }: { children: React.ReactNo
 
 
             {/* Profile */}
-            <div className="flex items-center gap-3 pl-3 border-l border-[#E2E8F0]">
+            <button className="flex items-center gap-3 pl-3 border-l border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
               <div className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-semibold text-sm">
                 PW
               </div>
@@ -156,7 +156,7 @@ export default function DepartmentLayout({ children }: { children: React.ReactNo
                 <p className="text-sm font-medium text-[#1E293B]">Dept. Officer</p>
                 <p className="text-xs text-[#64748B]">Public Works</p>
               </div>
-            </div>
+            </button>
           </div>
         </header>
 

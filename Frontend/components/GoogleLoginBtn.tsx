@@ -18,8 +18,9 @@ export default function GoogleLoginBtn() {
       
       if (data.success) {
         localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
-        router.push('/dashboard')
+        router.push('/user-details')
       } else {
         console.error('Google login failed:', data.message)
         alert('Login failed. Please try again.')

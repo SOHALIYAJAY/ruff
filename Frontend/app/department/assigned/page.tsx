@@ -7,12 +7,10 @@ import AssignedComplaintsStats from "@/components/department/assigned-complaints
 import AssignedComplaintsTable from "@/components/department/assigned-complaints-table"
 import type { Complaint } from "@/components/department/assigned-complaints-table"
 import AssignOfficerModal from "@/components/department/assign-officer-modal"
-import ViewDetailsModal from "@/components/department/view-details-modal"
 import AssignedAnalyticsSidebar from "@/components/department/assigned-analytics-sidebar"
 
 export default function AssignedComplaintsPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
 
   const handleAssign = (complaint: Complaint) => {
@@ -21,8 +19,8 @@ export default function AssignedComplaintsPage() {
   }
 
   const handleViewDetails = (complaint: Complaint) => {
-    setSelectedComplaint(complaint)
-    setDetailsModalOpen(true)
+    // This is now handled by the ViewDetailsButton component directly
+    console.log('View details for complaint:', complaint.id)
   }
 
   return (
@@ -56,11 +54,6 @@ export default function AssignedComplaintsPage() {
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
         complaint={selectedComplaint ? { id: selectedComplaint.id.toString(), title: selectedComplaint.title, officer: selectedComplaint.officer_id?.toString() || '' } : null}
-      />
-      <ViewDetailsModal
-        open={detailsModalOpen}
-        onClose={() => setDetailsModalOpen(false)}
-        complaint={selectedComplaint}
       />
     </div>
   )

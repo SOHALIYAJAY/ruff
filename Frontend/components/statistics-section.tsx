@@ -7,7 +7,7 @@ interface StatCard {
   Resolved_complaints:number
   Pending_complaints:number
   SLA_complaince:number
-  Active_department:number
+  total_categories:number
   // inprogress_complaints:number
   label: string
   value: number
@@ -58,7 +58,7 @@ export default function StatisticsSection() {
     },
     {
       label: 'Active Departments',
-      value: compinfo.Active_department || 0,
+      value: compinfo.total_categories || 0,
       icon: '🏢',
       color: 'from-indigo-500 to-indigo-600',
     },

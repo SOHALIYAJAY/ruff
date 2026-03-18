@@ -19,8 +19,8 @@ from django.urls import path
 from complaints.views import createcomplaint
 from complaints.district_views import DistrictDetailView
 from Civic import views
-from Civic.views import getcomplaint,getcomplaintlimit,compinfo,complaintofficer,officerprofile,officerkpi,adminallcomplaintcart,adimncomplaints,ComplaintDelete,assigncomp,crateofficer,CategoriesList,CategoryDelete,adminstats
-from accounts.views import RegisterView, LoginView, LogoutView, GoogleLoginView
+from Civic.views import getcomplaint,getcomplaintlimit,getpubliccomplaints,compinfo,complaintofficer,officerprofile,officerkpi,adminallcomplaintcart,adimncomplaints,ComplaintDelete,assigncomp,crateofficer,CategoriesList,CategoryDelete,adminstats,TrackComplaint,ComplaintStatus,OfficerDelete,OfficerUpdate,OfficerAnalytics,Logout
+from accounts.views import RegisterView, LoginView, LogoutView, GoogleLoginView, UserDetail, UpdateUserDetails
 from contact_us.views import ContactUSview
 from departments.views import OfficerDetail
 
@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/raisecomplaint/',createcomplaint,name='raisecomplaint'),
     path('api/getcomplaint/',getcomplaint.as_view(),name='getcomplaint'),
     path('api/getcomplaintlimit/',getcomplaintlimit.as_view(),name='getcomplaintlimit'),
+    path('api/getpubliccomplaints/',getpubliccomplaints.as_view(),name='getpubliccomplaints'),
     path('complaintsinfo/',views.complaintsinfo,name='complaintsinfo'),
     path('api/complaintDetails/<str:pk>',views.complaintDetails,name='complaintDetails'),
     # path('api/complaintsinfo/',complaintsinfo,name='complaintsinfo'),
@@ -39,7 +40,8 @@ urlpatterns = [
     path('api/login/', LoginView.as_view(),name='login'),
     path('api/logout/', LogoutView.as_view(),name='logout'),
     path('api/google-login/',GoogleLoginView.as_view(),name='google-login'),
-    # path('api/userdetails/', UserDetail.as_view(),name='user-details'),
+    path('api/userdetails/', UserDetail.as_view(),name='user-details'),
+    path('api/update-userdetails/', UpdateUserDetails.as_view(), name='update-user-details'),
     path('api/contact/',ContactUSview.as_view(),name='contact'),
     path('api/compinfo/',views.complaintinfo.as_view(),name='compinfo'),
     path('api/deptinfo/',views.deptinfo.as_view(),name='deptinfo'),
@@ -59,6 +61,17 @@ urlpatterns = [
     path('api/updatecategory/<int:pk>/', views.CategoryUpdate.as_view(), name='update-category'),
     path('api/adminstats/', adminstats.as_view(), name='adminstats'),
     path('api/categorieslist/',views.CategoryList.as_view(),name='categorieslist'),
-    path('api/totalcategories/',views.TotalCategories.as_view(),name='totalcategories')
+    path('api/totalcategories/',views.TotalCategories.as_view(),name='totalcategories'),
+    path('api/trackcomplaint/<str:pk>/',TrackComplaint.as_view(),name='trackcomplaint'),
+    path('api/complaintmonthwise/',views.ComplaintMonthWise.as_view(),name='complaint-mothwise'),
+    path('api/complaintstatus/',views.ComplaintStatus.as_view(),name='complaint-status'),
+    path('api/officerdelete/<str:pk>/',OfficerDelete.as_view(),name='officer-delete'),
+    path('api/officerupdate/<str:pk>/',OfficerUpdate.as_view(),name='officer-update'),
+    path('api/officeranalytics/',OfficerAnalytics.as_view(),name='officer-analytics'),
+    path('api/logout/',Logout.as_view(),name='logout'),
+    path('api/complaintindetails/',views.ComplaintInDetail.as_view(),name='complaintindetails'),
+    path('api/complaintindetails/<int:pk>/',views.ComplaintInDetail.as_view(),name='complaintindetails-detail'),
+    path('api/complaints/status/',views.ComplaintStatusStats.as_view(),name='complaint-status-stats'),
+    path('api/complaints/monthly/',views.ComplaintMonthlyStats.as_view(),name='complaint-monthly-stats'),
+    path('api/department/dashboard/',views.DepartmentDashboardStats.as_view(),name='department-dashboard-stats'),
 ]
-                                                                                                   

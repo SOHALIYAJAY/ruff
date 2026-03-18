@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
+  PieChart,
+  Pie,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,13 +15,20 @@ import {
   Cell,
 } from "recharts"
 import { Trophy, TrendingUp } from "lucide-react"
-import api from "@/lib/axios"
 
-interface OfficerAnalytics {
-  name: string
-  resolved: number
-  pending: number
-  compliance: number
+interface AnalyticsData {
+  total_officers: number
+  available_officers: number
+  unavailable_officers: number
+  officers_with_complaints: number
+  department_stats: Record<string, { officers: number; active_complaints: number }>
+  workload_data: Array<{
+    officer_id: string
+    name: string
+    active_complaints: number
+    is_available: boolean
+  }>
+  availability_percentage: number
 }
 
 interface ChartCard {
@@ -39,7 +46,7 @@ function Card({ title, children }: ChartCard) {
 }
 
 export default function OfficersAnalytics() {
-  const [analyticsData, setAnalyticsData] = useState<OfficerAnalytics[]>([])
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,22 +56,28 @@ export default function OfficersAnalytics() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true)
-      // Fetch officer KPI data for analytics
-      const { data } = await api.get("/api/officer-kpi/")
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const response = await fetch(`${API_BASE}/api/officeranalytics/`)
       
-      // Generate sample analytics data based on structure
-      // In production, this would come from a dedicated analytics endpoint
-      const sampleData: OfficerAnalytics[] = [
-        { name: "Rajesh Kumar", resolved: 142, pending: 18, compliance: 96 },
-        { name: "Priya Sharma", resolved: 118, pending: 24, compliance: 91 },
-        { name: "Amit Patel", resolved: 95, pending: 12, compliance: 94 },
-        { name: "Neha Singh", resolved: 88, pending: 22, compliance: 87 },
-        { name: "Vikram Desai", resolved: 76, pending: 15, compliance: 92 },
-      ]
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data')
+      }
       
-      setAnalyticsData(sampleData)
+      const data = await response.json()
+      console.log('Officer analytics data:', data)
+      setAnalyticsData(data)
     } catch (error) {
       console.error('Error fetching analytics:', error)
+      // Set fallback data
+      setAnalyticsData({
+        total_officers: 0,
+        available_officers: 0,
+        unavailable_officers: 0,
+        officers_with_complaints: 0,
+        department_stats: {},
+        workload_data: [],
+        availability_percentage: 0
+      })
     } finally {
       setLoading(false)
     }
@@ -74,182 +87,111 @@ export default function OfficersAnalytics() {
     return <div className="text-center py-8 text-slate-400">Loading analytics...</div>
   }
 
-  // Calculate top performers
-  const topPerformers = [...analyticsData]
-    .sort((a, b) => b.resolved - a.resolved)
+  if (!analyticsData) {
+    return <div className="text-center py-8 text-slate-400">No analytics data available</div>
+  }
+
+  // Calculate top performers based on workload
+  const topPerformers = [...analyticsData.workload_data]
+    .sort((a, b) => b.active_complaints - a.active_complaints)
     .slice(0, 3)
 
-  // Calculate averages
-  const avgCompliance =
-    analyticsData.length > 0
-      ? Math.round(
-          analyticsData.reduce((sum, o) => sum + o.compliance, 0) /
-            analyticsData.length
-        )
-      : 0
+  // Prepare data for charts
+  const availabilityData = [
+    { name: 'Available', value: analyticsData.available_officers, color: '#10b981' },
+    { name: 'Unavailable', value: analyticsData.unavailable_officers, color: '#ef4444' }
+  ]
 
-  const totalResolved = analyticsData.reduce((sum, o) => sum + o.resolved, 0)
+  const departmentData = Object.entries(analyticsData.department_stats).map(([name, stats]) => ({
+    name,
+    officers: stats.officers,
+    complaints: stats.active_complaints
+  }))
 
   return (
     <div className="space-y-5">
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card title="Total Complaints Resolved">
-          <p className="text-2xl font-bold text-[#1e40af]">{totalResolved}</p>
-          <p className="text-xs text-slate-500 mt-1">Across all officers</p>
-        </Card>
-
-        <Card title="Average Compliance Rate">
-          <p className="text-2xl font-bold text-[#16a34a]">{avgCompliance}%</p>
-          <p className="text-xs text-slate-500 mt-1">SLA achievement</p>
-        </Card>
-
-        <Card title="Top Performer">
-          {topPerformers.length > 0 && (
-            <>
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-[#f59e0b]" />
-                <p className="font-semibold text-slate-800">
-                  {topPerformers[0].name}
-                </p>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                {topPerformers[0].resolved} complaints resolved
-              </p>
-            </>
-          )}
-        </Card>
-
-        <Card title="Active Officers">
-          <p className="text-2xl font-bold text-[#3b82f6]">
-            {analyticsData.length}
-          </p>
-          <p className="text-xs text-slate-500 mt-1">In department</p>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <h4 className="text-sm font-medium text-blue-700 mb-2">Total Officers</h4>
+          <p className="text-2xl font-bold text-blue-900">{analyticsData.total_officers}</p>
+        </div>
+        <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+          <h4 className="text-sm font-medium text-green-700 mb-2">Available</h4>
+          <p className="text-2xl font-bold text-green-900">{analyticsData.available_officers}</p>
+        </div>
+        <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+          <h4 className="text-sm font-medium text-orange-700 mb-2">With Complaints</h4>
+          <p className="text-2xl font-bold text-orange-900">{analyticsData.officers_with_complaints}</p>
+        </div>
+        <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+          <h4 className="text-sm font-medium text-purple-700 mb-2">Availability</h4>
+          <p className="text-2xl font-bold text-purple-900">{analyticsData.availability_percentage}%</p>
+        </div>
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Workload Distribution */}
-        <Card title="Officer Workload Comparison">
-          <div className="w-full h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analyticsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                  }}
-                  cursor={{ fill: "rgba(30, 64, 175, 0.1)" }}
-                />
-                <Legend />
-                <Bar dataKey="resolved" fill="#16a34a" radius={[8, 8, 0, 0]} />
-                <Bar dataKey="pending" fill="#f59e0b" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        {/* Availability Chart */}
+        <Card title="Officer Availability">
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={availabilityData}
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {availabilityData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </Card>
 
-        {/* Compliance Trend */}
-        <Card title="Officer Compliance Rates">
-          <div className="w-full h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={analyticsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={100}
-                />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} domain={[80, 100]} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#fff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value) => `${value}%`}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="compliance"
-                  stroke="#1e40af"
-                  strokeWidth={2}
-                  dot={{ fill: "#1e40af", r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+        {/* Department Distribution */}
+        <Card title="Department Distribution">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={departmentData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="officers" fill="#3b82f6" />
+              <Bar dataKey="complaints" fill="#10b981" />
+            </BarChart>
+          </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* Top Performers Table */}
-      <Card title="Top Performing Officers">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#e2e8f0]">
-                <th className="px-4 py-2 text-left font-semibold text-slate-600 text-xs uppercase">
-                  Rank
-                </th>
-                <th className="px-4 py-2 text-left font-semibold text-slate-600 text-xs uppercase">
-                  Officer Name
-                </th>
-                <th className="px-4 py-2 text-center font-semibold text-slate-600 text-xs uppercase">
-                  Resolved
-                </th>
-                <th className="px-4 py-2 text-center font-semibold text-slate-600 text-xs uppercase">
-                  Compliance
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e2e8f0]">
-              {topPerformers.map((officer, index) => (
-                <tr key={officer.name} className="hover:bg-slate-50">
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#1e40af] text-white text-xs font-bold">
-                      {index + 1}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {officer.name}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-block px-2 py-1 rounded bg-green-100 text-[#16a34a] text-xs font-semibold">
-                      {officer.resolved}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-[#1e40af] rounded-full"
-                          style={{ width: `${officer.compliance}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-slate-700">
-                        {officer.compliance}%
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Top Performers */}
+      <Card title="Officers with Most Active Complaints">
+        <div className="space-y-3">
+          {topPerformers.map((officer, index) => (
+            <div key={officer.officer_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                  {index + 1}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{officer.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {officer.is_available ? 'Available' : 'Unavailable'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-gray-900">{officer.active_complaints}</p>
+                <p className="text-xs text-gray-500">Active Complaints</p>
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

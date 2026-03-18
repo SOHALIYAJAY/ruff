@@ -14,6 +14,8 @@ import {
   Power,
   SortAsc,
   SortDesc,
+  Edit,
+  Trash2,
 } from "lucide-react"
 import api from '@/lib/axios'
 
@@ -32,9 +34,13 @@ type SortKey = "name"
 export default function OfficersTable({
   onViewProfile,
   onAssignComplaint,
+  onEditOfficer,
+  onDeleteOfficer,
 }: {
   onViewProfile: (officerId: string) => void
   onAssignComplaint: (officer: Officer) => void
+  onEditOfficer: (officer: Officer) => void
+  onDeleteOfficer: (officerId: string) => void
 }) {
   const [officers, setOfficers] = useState<Officer[]>([])
   const [loading, setLoading] = useState(false)
@@ -208,6 +214,12 @@ export default function OfficersTable({
                     <div className="flex items-center justify-center gap-0.5">
                       <button title="View Profile" onClick={() => onViewProfile(o.officer_id)} className="p-1.5 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors">
                         <Eye className="w-4 h-4" />
+                      </button>
+                      <button title="Edit Officer" onClick={() => onEditOfficer(o)} className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button title="Delete Officer" onClick={() => onDeleteOfficer(o.officer_id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors">
+                        <Trash2 className="w-4 h-4" />
                       </button>
                       {/* Assign action removed per request */}
                     </div>

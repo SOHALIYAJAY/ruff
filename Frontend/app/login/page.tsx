@@ -20,7 +20,7 @@ export default function LoginPage() {
     const token = localStorage.getItem('access_token')
     if (token) {
       setIsLoggedIn(true)
-      router.push('/dashboard')
+      router.push('/user-details')
     }
   }, [])
 
@@ -43,8 +43,9 @@ export default function LoginPage() {
       const data = await response.json()
       if (data.success) {
         localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
-        window.location.href = '/dashboard'
+        window.location.href = '/user-details'
       } else {
         setError(data.message || 'Invalid credentials')
       }
