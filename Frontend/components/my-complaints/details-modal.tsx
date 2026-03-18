@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { X, CheckCircle, Clock, MessageSquare, Share2, MapPin, Calendar, User, FileText, AlertCircle, Download, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
 interface Complaint {
   id: string
@@ -28,11 +29,14 @@ interface ComplaintDetailsModalProps {
   onClose: () => void
 }
 
-export default function ComplaintDetailsModal({ complaint, open, onClose }: ComplaintDetailsModalProps) {
-  const [activeTab, setActiveTab] = useState<'details' | 'timeline' | 'actions'>('details')
+export default function ComplaintDetailsModal({ complaint, onClose }: { complaint: Complaint; onClose: () => void }) {
+  const [copiedId, setCopiedId] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [activeTab, setActiveTab] = useState('details')
+  const router = useRouter()
 
-  if (!open || !complaint) return null
+  if (!complaint) return null
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -398,7 +402,11 @@ ${complaint.estimated_resolution ? `ESTIMATED RESOLUTION: ${complaint.estimated_
                   <p className="text-sm text-gray-600 mb-4">
                     If you have any questions about this complaint or need further assistance, please contact our support team.
                   </p>
-                  <Button variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100">
+                  <Button 
+                    variant="outline" 
+                    className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                    onClick={() => router.push('/contact')}
+                  >
                     Contact Support
                   </Button>
                 </div>
