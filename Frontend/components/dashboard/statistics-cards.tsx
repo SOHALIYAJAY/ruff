@@ -93,7 +93,7 @@ export default function StatisticsCards() {
   const stats: StatCard[] = [
     {
       label: 'Total Complaints',
-      value: info.total_complaints || 0,
+      value: info.total_complaints || info.total_comp || 0,
       icon: <AlertCircle className="w-6 h-6" />,
       bgColor: 'bg-blue-500/10',
       textColor: 'text-blue-600',
@@ -101,7 +101,7 @@ export default function StatisticsCards() {
     },
     {
       label: 'Pending',
-      value: info.Pending_complaints || 0,
+      value: info.Pending_complaints || info.pending_comp || 0,
       icon: <Clock className="w-6 h-6" />,
       bgColor: 'bg-amber-500/10',
       textColor: 'text-amber-600',
@@ -109,7 +109,7 @@ export default function StatisticsCards() {
     },
     {
       label: 'Resolved',
-      value: info.Resolved_complaints || 0,
+      value: info.Resolved_complaints || info.resolved_comp || 0,
       icon: <CheckCircle className="w-6 h-6" />,
       bgColor: 'bg-green-500/10',
       textColor: 'text-green-600',
@@ -117,7 +117,7 @@ export default function StatisticsCards() {
     },
     {
       label: 'SLA Compliance',
-      value: Math.round(info.SLA_complaince || 0),
+      value: info.SLA_complaince || info.sla_comp || 0,
       icon: <TrendingUp className="w-6 h-6" />,
       bgColor: 'bg-purple-500/10',
       textColor: 'text-purple-600',

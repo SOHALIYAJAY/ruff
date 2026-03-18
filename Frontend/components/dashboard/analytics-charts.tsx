@@ -72,7 +72,7 @@ export default function AnalyticsCharts() {
   }, [])
 
   // Calculate percentages for pie chart
-  const total = statusData.total_comp
+  const total = statusData.total_comp || 0
   const hasData = total > 0
   
   let pendingPercentage = 0
@@ -80,9 +80,9 @@ export default function AnalyticsCharts() {
   let inProgressPercentage = 0
   
   if (hasData) {
-    pendingPercentage = (statusData.pending_comp / total) * 100
-    resolvedPercentage = (statusData.resolved_comp / total) * 100
-    inProgressPercentage = (statusData.inprogress_comp / total) * 100
+    pendingPercentage = (statusData.pending_comp || 0) / total * 100
+    resolvedPercentage = (statusData.resolved_comp || 0) / total * 100
+    inProgressPercentage = (statusData.inprogress_comp || 0) / total * 100
   }
 
   // Prepare monthly data for bar chart

@@ -81,6 +81,7 @@ export default function DashboardHeader() {
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <a href="/" className="hover:text-primary transition-colors">
+            <Home className="h-4 w-4" />
             Home
           </a>
           <span>/</span>
@@ -90,6 +91,32 @@ export default function DashboardHeader() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Loading...</h1>
             <p className="text-muted-foreground">Please wait while we load your information.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show content when user data is available
+  if (!user || !user.data) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <a href="/" className="hover:text-primary transition-colors">
+            <Home className="h-4 w-4" />
+            Home
+          </a>
+          <span>/</span>
+          <span className="text-foreground font-medium">Dashboard</span>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Welcome back, User!
+            </h1>
+            <p className="text-muted-foreground">
+              Here's what's happening with your complaints today.
+            </p>
           </div>
         </div>
       </div>
@@ -109,7 +136,7 @@ export default function DashboardHeader() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back, {user.name || user?.username || 'User' }!
+            Welcome back, {user?.data?.name || user?.data?.username || 'User'}!
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your complaints today.

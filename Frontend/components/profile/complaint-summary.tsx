@@ -52,9 +52,9 @@ export default function ComplaintSummary() {
           
           // Calculate stats from actual complaints
           const totalComplaints = complaints.length
-          const activeComplaints = complaints.filter(c => c.status === 'Pending' || c.status === 'In Progress').length
-          const resolvedComplaints = complaints.filter(c => c.status === 'Resolved').length
-          const escalatedComplaints = complaints.filter(c => c.priority === 'High').length
+          const activeComplaints = complaints.filter((c: Complaint) => c.status === 'Pending' || c.status === 'In Progress').length
+          const resolvedComplaints = complaints.filter((c: Complaint) => c.status === 'Resolved').length
+          const escalatedComplaints = complaints.filter((c: Complaint) => c.priority === 'High').length
 
           const newStats: ComplaintStat[] = [
             {
@@ -91,7 +91,7 @@ export default function ComplaintSummary() {
           
           // Get recent 5 complaints
           const recent = complaints
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .sort((a: Complaint, b: Complaint) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 5)
           
           setRecentComplaints(recent)
