@@ -50,6 +50,7 @@ export default function RaiseComplaintForm() {
   const [submitted, setSubmitted] = useState(false)
   const [fileError, setFileError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -317,8 +318,23 @@ export default function RaiseComplaintForm() {
       }
 
       console.log("Complaint submitted successfully:", data)
+      // Do not show in-form banner or alert here; keep UX minimal and avoid duplicate messages
       setSubmitted(true)
-      alert("Complaint Submitted Successfully!")
+      // Show success message in the UI (include server-provided id if available)
+      const serverId = (data as any)?.id || (data as any)?.complaint_id || (data as any)?.pk
+      const msg = serverId ? `Complaint submitted successfully. ID: ${serverId}` : 'Complaint submitted successfully.'
+      setSuccessMessage(msg)
+      // Auto-hide after 8 seconds
+      setTimeout(() => setSuccessMessage(''), 8000)
+      // Notify other open tabs (admin dashboard) that a new complaint was created
+      try {
+        const bc = new BroadcastChannel('complaints')
+        bc.postMessage({ type: 'new-complaint', complaintId: serverId })
+        bc.close()
+      } catch (e) {
+        // BroadcastChannel may not be available in older browsers; ignore errors
+        console.warn('BroadcastChannel unavailable:', e)
+      }
       
       // Reset form
       setFormData({
@@ -369,20 +385,7 @@ export default function RaiseComplaintForm() {
   return (
     <section className="py-12 sm:py-16 bg-gradient-to-b from-background to-muted/30">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        {submitted && (
-          <div className="mb-8 p-6 bg-green-500/10 border border-green-500/20 rounded-lg slide-in-up">
-            <div className="flex gap-4 items-start">
-              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-white text-sm">✓</span>
-              </div>
-              <div>
-                <h3 className="font-semibold text-green-700 mb-1">Complaint Submitted Successfully!</h3>
-                <p className="text-green-600 text-sm">Your complaint ID: <span className="font-mono font-bold">CTC-2024-001234</span></p>
-                <p className="text-green-600 text-sm mt-2">We will review your complaint and take necessary action. You can track the status using your complaint ID.</p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Success banner intentionally removed to avoid duplicate/anchoring issues */}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Form Section */}
@@ -644,11 +647,21 @@ export default function RaiseComplaintForm() {
                     setUploadedFiles([])
                     setFilePreviews([])
                     setSubmitted(false)
+                    setSuccessMessage('')
                   }}
                 >
                   Clear Form
                 </Button>
               </div>
+              {/* Success message area placed below Submit/Clear buttons (matches requested placement) */}
+              {successMessage && (
+                <div className="mt-4">
+                  <div className="w-full p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 flex items-center justify-between">
+                    <div className="text-sm">{successMessage}</div>
+                    <button type="button" onClick={() => setSuccessMessage('')} className="text-green-700 font-bold ml-4">✕</button>
+                  </div>
+                </div>
+              )}
             </form>
           </div>
 

@@ -6,10 +6,15 @@ from .models import CustomUser
 class CustomUserCreationForm(forms.ModelForm):
     password1 = forms.CharField(label="Password", widget=forms.PasswordInput)
     password2 = forms.CharField(label="Confirm Password", widget=forms.PasswordInput)
+    User_Role = forms.ChoiceField(
+        choices=CustomUser.CHOICE_FIELDS,
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        initial='Civic-User'
+    )
 
     class Meta:
         model = CustomUser
-        fields = ("email", "first_name", "last_name")
+        fields = ("email", "username", "name", "User_Role", "mobile_number", "address", "district", "taluka", "ward_number")
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -30,7 +35,14 @@ class CustomUserCreationForm(forms.ModelForm):
 
 class CustomUserChangeForm(forms.ModelForm):
     password = ReadOnlyPasswordHashField()
+    User_Role = forms.ChoiceField(
+        choices=CustomUser.CHOICE_FIELDS,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
 
     class Meta:
         model = CustomUser
-        fields = ("email", "password", "first_name", "last_name", "is_active", "is_staff")
+        fields = ("email", "username", "name", "User_Role", "mobile_number", "address", "district", "taluka", "ward_number", "password", "is_active", "is_staff")
+
+    def clean_password(self):
+        return self.initial["password"]

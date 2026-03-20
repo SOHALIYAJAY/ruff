@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # 'accounts',
     'complaints',
     'departments',
+    'officer',
     'dashboard',
     # 'notification',
     'contact_us',

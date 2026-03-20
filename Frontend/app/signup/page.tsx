@@ -161,6 +161,7 @@ export default function SignupPage() {
                 >
                   <option value="Civic-User">Civic User</option>
                   <option value="Department-User">Department User</option>
+                  <option value="Officer">Officer</option>
                   <option value="Admin-User">Admin User</option>
                 </select>
               </div>

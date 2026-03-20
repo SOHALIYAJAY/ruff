@@ -15,6 +15,10 @@ interface ComplaintsFiltersProps {
   setSelectedPriority: (priority: string) => void
   selectedDateRange: string
   setSelectedDateRange: (range: string) => void
+  selectedDistrict?: string
+  setSelectedDistrict?: (d: string) => void
+  selectedAssigned?: string
+  setSelectedAssigned?: (a: string) => void
 }
 
 export default function ComplaintsFilters({
@@ -28,6 +32,10 @@ export default function ComplaintsFilters({
   setSelectedPriority,
   selectedDateRange,
   setSelectedDateRange,
+  selectedDistrict,
+  setSelectedDistrict,
+  selectedAssigned,
+  setSelectedAssigned,
 }: ComplaintsFiltersProps) {
   const [categories, setCategories] = useState<Array<any>>([])
   const [loading, setLoading] = useState(false)
@@ -80,7 +88,7 @@ export default function ComplaintsFilters({
   }
 
   const hasActiveFilters = searchQuery || selectedDepartment !== 'all' || selectedStatus !== 'all' || 
-                           selectedPriority !== 'all' || selectedDateRange !== 'all'
+                           selectedPriority !== 'all' || selectedDateRange !== 'all' || (selectedDistrict && selectedDistrict !== '') || (selectedAssigned && selectedAssigned !== '')
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 mb-6">
@@ -212,7 +220,11 @@ export default function ComplaintsFilters({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">District</label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 bg-white">
+              <select
+                value={selectedDistrict || ''}
+                onChange={(e) => setSelectedDistrict && setSelectedDistrict(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 bg-white"
+              >
                 <option value="">All Districts</option>
                 <option value="Ahmedabad">Ahmedabad</option>
                 <option value="Surat">Surat</option>
@@ -222,7 +234,11 @@ export default function ComplaintsFilters({
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Officer</label>
-              <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 bg-white">
+              <select
+                value={selectedAssigned || ''}
+                onChange={(e) => setSelectedAssigned && setSelectedAssigned(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700 bg-white"
+              >
                 <option value="">All Officers</option>
                 <option value="assigned">Assigned</option>
                 <option value="unassigned">Unassigned</option>
@@ -244,6 +260,8 @@ export default function ComplaintsFilters({
                 {selectedStatus !== 'all' && ` | Status: ${selectedStatus}`}
                 {selectedPriority !== 'all' && ` | Priority: ${selectedPriority}`}
                 {selectedDateRange !== 'all' && ` | Date: ${selectedDateRange}`}
+                {selectedDistrict && selectedDistrict !== '' && ` | District: ${selectedDistrict}`}
+                {selectedAssigned && selectedAssigned !== '' && ` | Assigned: ${selectedAssigned}`}
               </span>
             </div>
             <Button

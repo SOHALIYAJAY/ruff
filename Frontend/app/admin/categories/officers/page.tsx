@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronRight, LayoutDashboard, Users } from "lucide-react"
+import { ChevronRight, LayoutDashboard, Users, RefreshCw } from "lucide-react"
 import OfficersKpiCards from "@/components/admin/officers/officers-kpi-cards"
 import OfficersTable from "@/components/admin/officers/officers-table"
 import type { Officer } from "@/components/admin/officers/officers-table"
@@ -12,6 +12,14 @@ import AssignComplaintToOfficerModal from "@/components/admin/officers/assign-co
 export default function OfficersPage() {
   const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
   const [assignOfficer, setAssignOfficer] = useState<Officer | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefresh = () => {
+    setIsRefreshing(true)
+    setRefreshKey(prev => prev + 1)
+    setTimeout(() => setIsRefreshing(false), 500)
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -27,19 +35,31 @@ export default function OfficersPage() {
       </div>
 
       {/* Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Department Officers</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage officer assignments and performance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Department Officers</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage officer assignments and performance</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
       </div>
 
       {/* KPI Cards */}
-      <OfficersKpiCards />
+      <OfficersKpiCards key={refreshKey} />
 
       {/* Table */}
-      <div>
+      <div key={`table-${refreshKey}`}>
         <OfficersTable
           onViewProfile={(officerId) => setProfileOfficerId(officerId)}
           onAssignComplaint={(o) => setAssignOfficer(o)}
+          onEditOfficer={(o) => console.log('Edit officer:', o)}
+          onDeleteOfficer={(id) => console.log('Delete officer:', id)}
         />
       </div>
 

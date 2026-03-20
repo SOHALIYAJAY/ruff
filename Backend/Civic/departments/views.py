@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Q
 from complaints.models import Complaint
 from complaints.serializers import ComplaintSerializer
 from accounts.models import CustomUser
@@ -82,7 +83,9 @@ def department_profile(request):
         
         profile_data = {
             'id': department.id,
-            'name': department.name,
+            # `name` stores the category code (e.g. 'ROADS'); provide both code and label
+            'code': department.name,
+            'name': department.get_category_display(),
             'description': department.description,
             'head': department.head_officer.get_full_name() if department.head_officer else 'Not Assigned',
             'email': department.contact_email,
@@ -125,11 +128,60 @@ def department_officers(request):
             department = user.headed_department.first()
         
         if not department:
-            return Response({'error': 'No department found for this user'}, status=status.HTTP_404_NOT_FOUND)
-        
+            # No department found for this user — fall back to returning available Officer records
+            print(f"No department found for user {user.username} - returning available officers from Officer model")
+            officers_qs = Officer.objects.filter(is_available=True)
+            # If no available officers, include all officers as a last resort
+            if not officers_qs.exists():
+                officers_qs = Officer.objects.all()
+            officers_data = []
+            for officer in officers_qs:
+                # Calculate officer statistics (match schema used when department.officers (CustomUser) is returned)
+                handled_complaints = Complaint.objects.filter(officer_id=officer.officer_id).count()
+                resolved_complaints = Complaint.objects.filter(
+                    officer_id=officer.officer_id,
+                    status='resolved'
+                ).count()
+
+                resolved_complaints_with_dates = Complaint.objects.filter(
+                    officer_id=officer.officer_id,
+                    status='resolved'
+                )
+
+                avg_resolution_time = 0
+                if resolved_complaints_with_dates.exists():
+                    total_time = sum([
+                        (timezone.now().date() - comp.current_time.date()).days 
+                        for comp in resolved_complaints_with_dates
+                    ])
+                    avg_resolution_time = total_time / resolved_complaints_with_dates.count()
+
+                satisfaction_rate = 85.0
+                performance_score = min(100, (
+                    (resolved_complaints / max(1, handled_complaints) * 50) +
+                    (satisfaction_rate * 0.5)
+                ))
+
+                officers_data.append({
+                    'id': officer.officer_id,
+                    'name': officer.name,
+                    'email': officer.email,
+                    'phone': getattr(officer, 'phone', 'Not Available'),
+                    'role': 'Officer',
+                    'department': None,
+                    'status': 'Active' if officer.is_available else 'Inactive',
+                    'joinedDate': None,
+                    'totalComplaintsHandled': handled_complaints,
+                    'avgResolutionTime': round(avg_resolution_time, 1),
+                    'satisfactionRate': round(satisfaction_rate, 1),
+                    'performanceScore': round(performance_score, 1)
+                })
+
+            return Response(officers_data)
+
         officers = department.officers.all()
         officers_data = []
-        
+
         for officer in officers:
             # Calculate officer statistics
             handled_complaints = Complaint.objects.filter(officer_id=officer).count()
@@ -167,7 +219,8 @@ def department_officers(request):
                 'email': officer.email,
                 'phone': getattr(officer, 'phone', 'Not Available'),
                 'role': 'Officer',
-                'department': department.name,
+                # return human-readable label for department
+                'department': department.get_category_display(),
                 'status': 'Active' if officer.is_active else 'Inactive',
                 'joinedDate': officer.date_joined.strftime('%Y-%m-%d') if officer.date_joined else 'Unknown',
                 'totalComplaintsHandled': handled_complaints,
@@ -203,18 +256,26 @@ def department_complaints(request):
             print(f"Found department via headed_department relation: {department.name}")
         
         if not department:
-            print(f"No department found for user {user.username}")
-            return Response({'error': 'No department found for this user'}, status=status.HTTP_404_NOT_FOUND)
+            # If user has no department assigned, fall back to returning all complaints
+            # This helps department users without an explicit department mapping to still
+            # view complaints in the UI (category-wise). Log a warning but do not 404.
+            print(f"No department found for user {user.username} - falling back to all complaints")
+            complaints = Complaint.objects.all().order_by('-current_time')
+            print(f"Found {complaints.count()} total complaints (fallback)")
+        else:
+            # Get complaints that should be handled by this department
+            # Try matching by Category.code or Category.department to be robust
+            print(f"Filtering complaints for department code: {department.category}")
+            complaints = Complaint.objects.filter(
+                Q(Category__code__iexact=department.category) |
+                Q(Category__department__iexact=department.category) |
+                Q(Category__department__iexact='')
+            ).order_by('-current_time')
         
-        # Get complaints that should be handled by this department
-        # This includes both assigned and unassigned complaints
-        # Category.department is a CharField, so we need to filter by department name
-        print(f"Filtering complaints for department: {department.name}")
-        complaints = Complaint.objects.filter(
-            Category__department=department.name
-        ).order_by('-current_time')
-        
-        print(f"Found {complaints.count()} complaints for department {department.name}")
+        if department:
+            print(f"Found {complaints.count()} complaints for department {department.name}")
+        else:
+            print(f"Returning {complaints.count()} complaints as fallback for user {user.username}")
         
         complaints_data = []
         

@@ -196,11 +196,11 @@ useEffect(() => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge className={`${statusConfig[complaint.status].color} border`}>
-                      {statusConfig[complaint.status].label}
+                    <Badge className={`${statusConfig[complaint.status]?.color || 'bg-gray-50 text-gray-700 border-gray-200'} border`}>
+                      {statusConfig[complaint.status]?.label || complaint.status}
                     </Badge>
-                    <Badge className={priorityConfig[complaint.priority_level].color}>
-                      {priorityConfig[complaint.priority_level].label}
+                    <Badge className={priorityConfig[complaint.priority_level]?.color || 'bg-gray-100 text-gray-800'}>
+                      {priorityConfig[complaint.priority_level]?.label || complaint.priority_level}
                     </Badge>
                   </div>
                 </div>

@@ -17,6 +17,7 @@ export default function CategoriesPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
+  const [departments, setDepartments] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', code: '', description: '', department: '' })
@@ -38,18 +39,22 @@ export default function CategoriesPage() {
     }
   }
 
-  // Get unique departments from categories for filter dropdown
-  const getUniqueDepartments = () => {
-    const departments = new Set<string>()
-    categories.forEach(cat => {
-      if (cat.department && cat.department.trim()) {
-        departments.add(cat.department.trim())
-      }
-    })
-    return Array.from(departments).sort()
+  // Fetch all departments from DB for filter dropdown
+  async function fetchDepartments() {
+    try {
+      const res = await fetch(`${API_BASE}/api/departments/`)
+      if (!res.ok) throw new Error('Failed to fetch departments')
+      const data = await res.json()
+      setDepartments(data)
+    } catch (e: any) {
+      console.error('Error fetching departments:', e)
+    }
   }
 
-  useEffect(() => { fetchCategories() }, [])
+  useEffect(() => { 
+    fetchCategories()
+    fetchDepartments()
+  }, [])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -58,17 +63,37 @@ export default function CategoriesPage() {
   }
 
   async function createCategory() {
+    // Validate required fields
+    if (!form.name.trim()) {
+      alert('Please enter a category name')
+      return
+    }
+    if (!form.code.trim()) {
+      alert('Please enter a category code')
+      return
+    }
+
     try {
       const res = await fetch(`${API_BASE}/api/categories/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, code: form.code, department: form.department }),
+        body: JSON.stringify({ name: form.name, code: form.code }),
       })
-      if (!res.ok) throw new Error(await res.text() || 'Create failed')
+      if (!res.ok) {
+        const errorData = await res.json()
+        if (errorData.errors) {
+          const errorMessages = Object.entries(errorData.errors)
+            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+            .join('\n')
+          throw new Error(errorMessages)
+        }
+        throw new Error(errorData.message || 'Create failed')
+      }
       const created = await res.json()
       setCategories((s) => [created, ...s])
       setShowAddForm(false)
       setForm({ name: '', code: '', description: '', department: '' })
+      alert('Category created successfully!')
     } catch (e: any) {
       alert('Create failed: ' + (e.message || e))
     }
@@ -156,24 +181,24 @@ export default function CategoriesPage() {
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
 
       {/* Page Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-6">
+      <div className="bg-gradient-to-r from-[hsl(var(--sidebar-primary)/0.1)] to-[hsl(var(--sidebar-primary)/0.2)] rounded-lg border border-[hsl(var(--sidebar-primary)/0.3)] p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-blue-900">Manage Categories</h1>
-            <p className="text-sm text-blue-700 mt-1">Create and configure complaint categories</p>
+            <h1 className="text-3xl font-bold text-[hsl(var(--sidebar-primary))]">Manage Categories</h1>
+            <p className="text-sm text-[hsl(var(--sidebar-primary)/0.8)] mt-1">Create and configure complaint categories</p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || loading}
-              className="flex items-center gap-2 px-4 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-4 py-2 border border-[hsl(var(--sidebar-primary)/0.5)] text-[hsl(var(--sidebar-primary))] rounded-lg hover:bg-[hsl(var(--sidebar-primary)/0.1)] transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--sidebar-primary))] text-white rounded-lg hover:bg-[hsl(var(--sidebar-primary)/0.9)] transition-colors font-medium"
             >
               <Plus className="w-5 h-5" />
               Add Category
@@ -189,7 +214,7 @@ export default function CategoriesPage() {
             <h2 className="text-lg font-semibold text-gray-900">Add New Category</h2>
             <button onClick={() => setShowAddForm(false)} className="text-gray-500 hover:text-gray-700">✕</button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
               <input
@@ -197,7 +222,7 @@ export default function CategoriesPage() {
                 placeholder="e.g., Water Supply"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[hsl(var(--sidebar-primary))] focus:border-transparent"
               />
             </div>
             <div>
@@ -207,7 +232,7 @@ export default function CategoriesPage() {
                 placeholder="e.g., WS"
                 value={form.code}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[hsl(var(--sidebar-primary))] focus:border-transparent"
               />
             </div>
           </div>
@@ -215,7 +240,7 @@ export default function CategoriesPage() {
             <button onClick={() => setShowAddForm(false)} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
               Cancel
             </button>
-            <button onClick={createCategory} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+            <button onClick={createCategory} className="px-6 py-2 bg-[hsl(var(--sidebar-primary))] text-white rounded-lg font-medium hover:bg-[hsl(var(--sidebar-primary)/0.9)] transition-colors">
               Save Category
             </button>
           </div>
@@ -237,23 +262,13 @@ export default function CategoriesPage() {
               placeholder="Search categories..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1) }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[hsl(var(--sidebar-primary))] focus:border-transparent"
             />
           </div>
-          <select
-            value={filterDepartment}
-            onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1) }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">All Departments</option>
-            {getUniqueDepartments().map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
-          </select>
           <button
             onClick={() => toggleSort('complaints')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-medium text-sm transition-colors ${
-              sortBy === 'complaints' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              sortBy === 'complaints' ? 'bg-[hsl(var(--sidebar-primary))] text-white border-[hsl(var(--sidebar-primary))]' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
             }`}
           >
             <ArrowUpDown className="w-4 h-4" />
@@ -280,7 +295,7 @@ export default function CategoriesPage() {
                     <div className="flex items-center gap-1">
                       Complaints
                       <ArrowUpDown className="w-4 h-4" />
-                      {sortBy === 'complaints' && <span className="text-xs text-blue-600">{sortOrder === 'desc' ? '↓' : '↑'}</span>}
+                      {sortBy === 'complaints' && <span className="text-xs text-[hsl(var(--sidebar-primary))]">{sortOrder === 'desc' ? '↓' : '↑'}</span>}
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Actions</th>
@@ -288,7 +303,7 @@ export default function CategoriesPage() {
               </thead>
               <tbody>
                 {paginatedCategories.map((cat) => (
-                  <tr key={cat.id} className="border-b border-gray-200 hover:bg-blue-50 transition-colors">
+                  <tr key={cat.id} className="border-b border-gray-200 hover:bg-[hsl(var(--sidebar-primary)/0.05)] transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-900">{cat.name}</td>
                     <td className="px-4 py-3 text-gray-600 font-mono">{cat.code || '-'}</td>
                     <td className="px-4 py-3 text-gray-600">
@@ -298,7 +313,7 @@ export default function CategoriesPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
-                          className="p-1.5 hover:bg-blue-100 rounded transition-colors"
+                          className="p-1.5 hover:bg-[hsl(var(--sidebar-primary)/0.1)] rounded transition-colors"
                           title="Edit"
                           onClick={() => { 
   setEditingCategory(cat); 
@@ -309,7 +324,7 @@ export default function CategoriesPage() {
   }) 
 }}
                         >
-                          <Edit2 className="w-4 h-4 text-blue-600" />
+                          <Edit2 className="w-4 h-4 text-[hsl(var(--sidebar-primary))]" />
                         </button>
                         <button
                           className="p-1.5 hover:bg-red-100 rounded transition-colors"
@@ -345,7 +360,7 @@ export default function CategoriesPage() {
                   key={i + 1}
                   onClick={() => setCurrentPage(i + 1)}
                   className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                    currentPage === i + 1 ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                    currentPage === i + 1 ? 'bg-[hsl(var(--sidebar-primary))] text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {i + 1}
@@ -395,11 +410,11 @@ export default function CategoriesPage() {
                 <select
                   value={editForm.department}
                   onChange={(e) => setEditForm((f) => ({ ...f, department: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[hsl(var(--sidebar-primary))] focus:border-transparent"
                 >
-                  <option value="Unassigned">Unassigned</option>
-                  {getUniqueDepartments().map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                  <option value="">Select Department</option>
+                  {departments.map((dept: any) => (
+                    <option key={dept.id} value={dept.name}>{dept.name}</option>
                   ))}
                 </select>
               </div>
@@ -408,7 +423,7 @@ export default function CategoriesPage() {
               <button onClick={() => setEditingCategory(null)} className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
                 Cancel
               </button>
-              <button onClick={updateCategory} className="px-5 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+              <button onClick={updateCategory} className="px-5 py-2 bg-[hsl(var(--sidebar-primary))] text-white rounded-lg font-medium hover:bg-[hsl(var(--sidebar-primary)/0.9)] transition-colors">
                 Save Changes
               </button>
             </div>

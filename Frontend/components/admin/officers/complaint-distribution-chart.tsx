@@ -102,7 +102,7 @@ export default function ComplaintDistributionChart() {
       {activeTab === 'priority' && (
         <div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart data={chartData.priority_distribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis 
@@ -147,7 +147,7 @@ export default function ComplaintDistributionChart() {
       {activeTab === 'status' && (
         <div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={400}>
               <PieChart>
                 <Pie
                   data={chartData.status_distribution}
@@ -195,7 +195,7 @@ export default function ComplaintDistributionChart() {
       {activeTab === 'trends' && (
         <div>
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={400}>
               <BarChart data={chartData.monthly_trends}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                 <XAxis 

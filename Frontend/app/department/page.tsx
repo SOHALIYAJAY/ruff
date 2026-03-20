@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { BarChart3, TrendingUp, Users, FileText, Clock, CheckCircle2, Activity, AlertTriangle, Calendar, Target, Award, RefreshCw, Eye, Wifi, WifiOff, UserCheck } from "lucide-react"
+import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import Link from "next/link"
 import api from '@/lib/axios'
 
@@ -44,6 +45,13 @@ interface DashboardData {
   performance: PerformanceMetrics
   recentComplaints: Complaint[]
   recentActivity: RecentActivity[]
+  roleDistribution?: {
+    totalOfficers: number
+    activeOfficers: number
+    inactiveOfficers: number
+    totalUsers: number
+    activeUsers: number
+  }
 }
 
 interface ApiError {
@@ -164,8 +172,15 @@ const EmptyState = () => (
   </div>
 )
 
+const normalizeBorderColor = (b?: string) => {
+  if (!b) return ''
+  if (b.startsWith('border-t-') || b.startsWith('border-t[') || b.startsWith('border-t')) return `border-t-4 ${b}`
+  if (b.startsWith('border-')) return `border-t-4 border-t-${b.slice('border-'.length)}`
+  return `border-t-4 border-t-${b}`
+}
+
 const StatsCard = ({ title, value, subtitle, icon, color, borderColor }: any) => (
-  <div className={`bg-white rounded-xl border border-gray-200 border-t-4 border-t-${borderColor} shadow-sm p-5 hover:shadow-md transition-shadow`}>
+  <div className={`bg-white rounded-xl border border-gray-200 ${normalizeBorderColor(borderColor)} shadow-sm p-5 hover:shadow-md transition-shadow h-full`}>
     <div className="flex items-center justify-between mb-3">
       <div className={`${color} p-2 rounded-lg`}>
         {icon}
@@ -264,12 +279,16 @@ export default function DepartmentDashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isOnline, setIsOnline] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  
+  // (Header filters removed)
 
   // Fetch dashboard data with error handling and caching
   const fetchDashboardData = useCallback(async () => {
     try {
       setError(null)
-      const response = await api.get('/api/department/dashboard/')
+      
+      // Fetch dashboard data (no header-side filters)
+      const response = await api.get(`/api/department/dashboard/`)
       
       // Validate response data
       const data = response.data
@@ -289,6 +308,74 @@ export default function DepartmentDashboard() {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // Ensure roleDistribution exists in object shape required by this page.
+  useEffect(() => {
+    const needsRoleObject = () => {
+      if (!dashboardData) return true
+      const rd = (dashboardData as any).roleDistribution
+      // If roleDistribution is missing or an array, we need to derive an object
+      if (!rd) return true
+      if (Array.isArray(rd)) return true
+      // If object but missing numeric fields
+      if (typeof rd.totalUsers !== 'number' || typeof rd.activeOfficers !== 'number' || typeof rd.inactiveOfficers !== 'number') return true
+      return false
+    }
+
+    if (!needsRoleObject()) return
+
+    const deriveRoleDistribution = async () => {
+      try {
+        const resp = await api.get('/api/users/')
+        const data = resp.data
+        let users: any[] = []
+        if (Array.isArray(data)) users = data
+        else if (data.results) users = data.results
+        else if (data.data) users = data.data
+
+        // normalize users and exclude admins
+        const processed = users.map((u: any) => ({
+          role: (u.role || '').toString(),
+          is_active: u.is_active !== undefined ? u.is_active : true
+        })).filter((u: any) => {
+          const role = (u.role || '').toLowerCase()
+          return !role.includes('admin') && !role.includes('administrator')
+        })
+
+        const totalUsers = processed.length
+        const officers = processed.filter((u: any) => (u.role || '').toLowerCase().includes('officer'))
+        const activeOfficers = officers.filter((o: any) => o.is_active).length
+        const inactiveOfficers = officers.length - activeOfficers
+
+        // Classify users into Civic vs Department (fallback heuristics)
+        let civicUsers = 0
+        let departmentUsers = 0
+        processed.forEach((u: any) => {
+          const role = (u.role || '').toLowerCase()
+          if (role.includes('officer')) return // counted separately
+          if (role.includes('department')) departmentUsers++
+          else if (role.includes('civic')) civicUsers++
+          else if (role.includes('user')) civicUsers++
+          else departmentUsers++
+        })
+
+        // set roleDistribution as an array (consistent with other pages)
+        const rdArray = [
+          { name: 'Civic Users', value: civicUsers, color: '#3B82F6' },
+          { name: 'Department Users', value: departmentUsers, color: '#6366F1' },
+        ]
+
+        setDashboardData((prev) => ({
+          ...(prev || {}),
+          roleDistribution: rdArray
+        }))
+      } catch (err) {
+        console.error('Failed to derive role distribution:', err)
+      }
+    }
+
+    deriveRoleDistribution()
   }, [])
 
   // Auto-refresh with cleanup
@@ -350,28 +437,89 @@ export default function DepartmentDashboard() {
     ]
   }, [dashboardData])
 
+  // Monthly complaints for department (separate API call - fallback to dashboardData if available)
+  const [monthlyCounts, setMonthlyCounts] = useState<number[]>([])
+  const [monthlyLoading, setMonthlyLoading] = useState(true)
+
+  useEffect(() => {
+    let mounted = true
+        const fetchMonthly = async () => {
+      try {
+        setMonthlyLoading(true)
+        const resp = await api.get('/api/complaintmonthwise/')
+        const data = resp.data
+            console.log('department: /api/complaintmonthwise response:', data)
+        // try to normalize several shapes
+        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        let values: number[] = []
+        if (data && data.monthly_data) {
+          values = monthNames.map((_, i) => Number(data.monthly_data?.[i+1]?.count || 0))
+        } else if (data && data.simplified) {
+          values = monthNames.map((_, i) => Number(data.simplified?.[i+1] || 0))
+        } else if (Array.isArray(data)) {
+          // array of months
+          const byIndex = data.reduce((acc: any, itm: any) => {
+            if (typeof itm.month_number === 'number') acc[itm.month_number] = Number(itm.complaints || 0)
+            return acc
+          }, {})
+          values = monthNames.map((_, i) => Number(byIndex[i+1] || 0))
+        } else {
+          values = monthNames.map((_, i) => Number((dashboardData as any)?.monthly?.[i+1] || 0))
+        }
+
+        if (mounted) setMonthlyCounts(values)
+      } catch (e) {
+        console.error('Failed to load monthly complaints:', e)
+      } finally {
+        if (mounted) setMonthlyLoading(false)
+      }
+    }
+
+    fetchMonthly()
+    return () => { mounted = false }
+  }, [dashboardData])
+
   const performanceMetrics = useMemo(() => {
-    if (!dashboardData) return []
-    
+    if (!dashboardData || !dashboardData.performance) return []
+
+    const perf = dashboardData.performance || { avgResolutionTime: 0, officerWorkload: 0, citizenSatisfaction: 0 }
     return [
       {
         icon: <Target className="w-4 h-4" />,
         label: 'Avg Resolution Time',
-        value: `${dashboardData.performance.avgResolutionTime} days`,
+        value: `${perf.avgResolutionTime ?? 0} days`,
         iconColor: 'text-blue-600'
       },
       {
         icon: <Users className="w-4 h-4" />,
         label: 'Officer Workload',
-        value: `${dashboardData.performance.officerWorkload}/officer`,
+        value: `${perf.officerWorkload ?? 0}/officer`,
         iconColor: 'text-orange-600'
       },
       {
         icon: <Activity className="w-4 h-4" />,
         label: 'Citizen Satisfaction',
-        value: `${dashboardData.performance.citizenSatisfaction}/5.0`,
+        value: `${perf.citizenSatisfaction ?? 0}/5.0`,
         iconColor: 'text-purple-600'
       }
+    ]
+  }, [dashboardData])
+
+  // Normalize roleDistribution into a list of pie entries for the chart and legend
+  const userDistributionEntries = useMemo(() => {
+    if (!dashboardData) return []
+    const rd: any = (dashboardData as any).roleDistribution
+    if (!rd) return []
+
+    if (Array.isArray(rd)) {
+      return rd.map((e: any) => ({ name: e.name, value: Number(e.value || 0), color: e.color || '#3B82F6' }))
+    }
+
+    // object shape fallback
+    return [
+      { name: 'Department Users', value: Number(rd.totalUsers || 0), color: '#3B82F6' },
+      { name: 'Active Officers', value: Number(rd.activeOfficers || 0), color: '#10B981' },
+      { name: 'Inactive Officers', value: Number(rd.inactiveOfficers || 0), color: '#F59E0B' }
     ]
   }, [dashboardData])
 
@@ -399,25 +547,16 @@ export default function DepartmentDashboard() {
           <p className="text-sm text-gray-600 mt-1">Real-time overview of department operations</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            {isOnline ? (
-              <><Wifi className="w-3 h-3 text-green-500" /> Online</>
-            ) : (
-              <><WifiOff className="w-3 h-3 text-red-500" /> Offline</>
-            )}
-          </div>
-          {lastUpdated && (
-            <span className="text-xs text-gray-500">
-              Last updated: {lastUpdated.toLocaleTimeString()}
-            </span>
-          )}
           <button
             onClick={handleRefresh}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Refresh dashboard"
+            className="px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 inline-flex items-center gap-2"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 text-gray-600" />
+            <span className="text-sm text-gray-700">Refresh</span>
           </button>
+          {lastUpdated && (
+            <div className="text-sm text-gray-500">Updated {lastUpdated.toLocaleTimeString()}</div>
+          )}
         </div>
       </div>
 
@@ -428,8 +567,114 @@ export default function DepartmentDashboard() {
         ))}
       </div>
 
-      {/* Performance Metrics & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* User Distribution Pie Chart */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">User Distribution</h3>
+            <p className="text-sm text-gray-600">Department users and officers breakdown</p>
+          </div>
+          
+          {userDistributionEntries && userDistributionEntries.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={userDistributionEntries}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={90}
+                    fill="#8884d8"
+                    dataKey="value"
+                    animationBegin={0}
+                    animationDuration={800}
+                  >
+                    {userDistributionEntries.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value: any, name: any) => {
+                      const total = userDistributionEntries.reduce((s, e) => s + Number(e.value || 0), 0)
+                      const percent = total ? ((value / total) * 100).toFixed(1) : '0.0'
+                      return [`${value}`, `${percent}%`]
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+
+              {/* Legend */}
+              <div className="mt-4 flex flex-wrap gap-3">
+                {userDistributionEntries.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100 shadow-sm">
+                    <span style={{ width: 12, height: 12, backgroundColor: entry.color, borderRadius: 3, display: 'inline-block' }} />
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-800">{entry.name}</div>
+                      <div className="text-xs text-gray-500">{entry.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-64 flex items-center justify-center text-gray-500">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                  <Users className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-700 mb-2">No User Data Available</h3>
+                <p className="text-gray-600 mb-4">No user distribution data available.</p>
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p>• Check if users exist in the database</p>
+                  <p>• Verify user roles are properly assigned</p>
+                  <p>• Ensure the API endpoint is accessible</p>
+                </div>
+              </div>
+            </div>
+          )}
+          </div>
+          {/* Monthly Complaints Trend (uses DB values) */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Monthly Complaints</h3>
+              <p className="text-sm text-gray-600">Last 12 months</p>
+            </div>
+
+            {monthlyLoading ? (
+                  <div className="h-48 flex items-center justify-center text-gray-500">Loading chart…</div>
+                ) : (
+                  <div style={{ width: '100%', height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => ({ name: m, complaints: monthlyCounts[i] || 0 }))}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="complaints" fill="hsl(var(--sidebar-primary))" radius={[6,6,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {/* Debug / fallback */}
+            {(!monthlyLoading && monthlyCounts.reduce((s, v) => s + (v || 0), 0) === 0) && (
+              <div className="mt-3 text-sm text-gray-500">No monthly complaint data available (API returned zeroes or is inaccessible).</div>
+            )}
+          </div>
+        </div>
+
+        {/* Performance Metrics & Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Performance Metrics */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="p-5 border-b border-gray-200">

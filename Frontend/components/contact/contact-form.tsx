@@ -33,7 +33,9 @@ export default function ContactForm() {
         body: JSON.stringify(formData),
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (response.ok && data.success) {
         setSubmitted(true)
         setTimeout(() => {
           setFormData({
@@ -45,11 +47,18 @@ export default function ContactForm() {
           setSubmitted(false)
         }, 3000)
       } else {
-        alert('Failed to send message. Please try again.')
+        // Handle validation errors or server errors
+        if (data.errors) {
+          // Show specific validation errors
+          const errorMessages = Object.values(data.errors).flat()
+          alert(`Please fix the following errors:\n${errorMessages.join('\n')}`)
+        } else {
+          alert(data.message || 'Failed to send message. Please try again.')
+        }
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('An error occurred. Please try again.')
+      alert('Network error. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }

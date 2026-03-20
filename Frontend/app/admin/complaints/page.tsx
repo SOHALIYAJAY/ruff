@@ -1,11 +1,12 @@
- 'use client'
+"use client"
 
- import { useState, useEffect } from 'react'
- import { Download, Filter, RefreshCw } from 'lucide-react'
- import ComplaintsTable from '../../../components/admin/complaints/ComplaintsTable'
- import ComplaintsFilters from '../../../components/admin/complaints/ComplaintsFilters'
- import ComplaintsKPI from '../../../components/admin/complaints/ComplaintsKPI'
- import api from '@/lib/axios'
+import { useState, useEffect, useContext } from 'react'
+import { Download, Filter, RefreshCw } from 'lucide-react'
+import ComplaintsTable from '../../../components/admin/complaints/ComplaintsTable'
+import ComplaintsFilters from '../../../components/admin/complaints/ComplaintsFilters'
+import ComplaintsKPI from '../../../components/admin/complaints/ComplaintsKPI'
+import api from '@/lib/axios'
+import { ComplaintsProvider, useComplaints } from '@/contexts/ComplaintsContext'
 
 interface Complaint {
   id: number
@@ -39,6 +40,8 @@ export default function AllComplaintsPage() {
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedPriority, setSelectedPriority] = useState('all')
   const [selectedDateRange, setSelectedDateRange] = useState('all')
+  const [selectedDistrict, setSelectedDistrict] = useState('')
+  const [selectedAssigned, setSelectedAssigned] = useState('')
 
   // State for data
   const [kpi, setKpi] = useState<KPIData>({
@@ -55,8 +58,16 @@ export default function AllComplaintsPage() {
   const [loadingComplaints, setLoadingComplaints] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [serverStart, setServerStart] = useState<number | null>(null)
+  const [serverEnd, setServerEnd] = useState<number | null>(null)
+  const itemsPerPage = 6
+
   // Categories will be loaded from backend
-  const [departments, setDepartments] = useState<Array<{ id: number; name: string }>>([])
+  const [departments, setDepartments] = useState<Array<{ id: number; name: string }>> ([])
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -68,25 +79,11 @@ export default function AllComplaintsPage() {
         // API returns [{id,name,slug,...}]
         setDepartments(data.map((c: any) => ({ id: c.id, name: c.name })))
       } catch (err) {
-        console.error('Failed to load categories, falling back to defaults', err)
-        setDepartments([
-          { id: 1, name: 'ROADS' },
-          { id: 2, name: 'TRAFFIC' },
-          { id: 3, name: 'WATER' },
-          { id: 4, name: 'SEWERAGE' },
-          { id: 5, name: 'SANITATION' },
-          { id: 6, name: 'LIGHTING' },
-          { id: 7, name: 'PARKS' },
-          { id: 8, name: 'ANIMALS' },
-          { id: 9, name: 'ILLEGAL_CONSTRUCTION' },
-          { id: 10, name: 'ENCROACHMENT' },
-          { id: 11, name: 'PROPERTY_DAMAGE' },
-          { id: 12, name: 'ELECTRICITY' },
-          { id: 13, name: 'OTHER' },
-        ])
+        console.error('Failed to load categories:', err)
+        setDepartments([])
       }
     }
-
+    
     fetchCategories()
   }, [])
 
@@ -135,11 +132,72 @@ export default function AllComplaintsPage() {
       try {
         setLoadingComplaints(true)
         setError(null)
+        
+        // Build query parameters for pagination and filters
+        const params = new URLSearchParams({
+          page: currentPage.toString(),
+          limit: itemsPerPage.toString(),
+          department: selectedDepartment,
+          status: selectedStatus,
+          priority: selectedPriority,
+          date_range: selectedDateRange,
+          district: selectedDistrict,
+          assigned: selectedAssigned,
+          search: searchQuery
+        })
 
-        const response = await api.get('/api/admincomplaints/')
-        const data = response.data
+        // Helpful debug logs for diagnosing 404s
+        const requestPath = `/api/admincomplaints/?${params.toString()}`
+        console.log('Fetching admin complaints:', api.defaults.baseURL, requestPath)
 
-        setComplaintsList(Array.isArray(data) ? data : data.results ?? [])
+        try {
+          const response = await api.get(requestPath)
+          const data = response.data
+
+          // Handle paginated response
+          if (data.results) {
+            const total = typeof data.count === 'number' ? data.count : (Array.isArray(data.results) ? data.results.length : 0)
+            const computedTotalPages = total > 0 ? Math.ceil(total / itemsPerPage) : 1
+
+            // If current page is out of range (e.g., after filters reduced results), clamp it and refetch
+            if (currentPage > computedTotalPages && computedTotalPages > 0) {
+              setTotalItems(total)
+              setTotalPages(computedTotalPages)
+              setServerStart(typeof data.start === 'number' ? data.start : null)
+              setServerEnd(typeof data.end === 'number' ? data.end : null)
+              setCurrentPage(computedTotalPages)
+              return
+            }
+
+            setComplaintsList(data.results)
+            setTotalItems(total)
+            setTotalPages(computedTotalPages)
+            setServerStart(typeof data.start === 'number' ? data.start : null)
+            setServerEnd(typeof data.end === 'number' ? data.end : null)
+          } else {
+            // Fallback for non-paginated response
+            const list = Array.isArray(data) ? data : []
+            setComplaintsList(list)
+            setTotalItems(list.length)
+            setTotalPages(list.length > 0 ? Math.ceil(list.length / itemsPerPage) : 1)
+          }
+        } catch (err: any) {
+          // Log rich error info for debugging 404/403 issues
+          console.error('❌ Complaints fetch request failed:', {
+            url: `${api.defaults.baseURL}${requestPath}`,
+            status: err?.response?.status,
+            data: err?.response?.data,
+            message: err?.message
+          })
+          // If backend returns 404 for an out-of-range page, step the page back and retry via effect
+          if (err?.response?.status === 404 && currentPage > 1) {
+            console.warn(`Page ${currentPage} out of range — stepping back to previous page`)
+            setCurrentPage(prev => Math.max(1, prev - 1))
+            return
+          }
+          throw err
+        }
+        // (Handled above inside the request try/catch)
       } catch (err: any) {
         console.error('❌ Complaints fetch error:', err)
         setError('Failed to fetch complaints data')
@@ -150,7 +208,7 @@ export default function AllComplaintsPage() {
     }
 
     fetchComplaints()
-  }, [])
+  }, [currentPage, selectedDepartment, selectedStatus, selectedPriority, selectedDateRange, selectedDistrict, selectedAssigned, searchQuery])
 
   // State for selected complaint (for modal)
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
@@ -285,58 +343,132 @@ export default function AllComplaintsPage() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">All Complaints</h1>
-            <p className="text-slate-600 mt-1">Manage and monitor all civic complaints</p>
+            <h1 className="text-3xl font-bold text-sidebar-primary">All Complaints</h1>
+            <p className="text-sidebar-primary mt-1">Manage and monitor all civic complaints</p>
           </div>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <ComplaintsKPI 
-        kpi={kpi} 
-        loading={loadingKPI} 
-        error={error} 
-        onRefresh={handleRefreshKPI}
-      />
+      <div className="mb-8">
+        <ComplaintsKPI 
+          kpi={kpi} 
+          loading={loadingKPI} 
+          error={error} 
+          onRefresh={handleRefreshKPI}
+        />
+      </div>
 
       {/* Filters */}
-      <ComplaintsFilters
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedDepartment={selectedDepartment}
-        setSelectedDepartment={setSelectedDepartment}
-        selectedStatus={selectedStatus}
-        setSelectedStatus={setSelectedStatus}
-        selectedPriority={selectedPriority}
-        setSelectedPriority={setSelectedPriority}
-        selectedDateRange={selectedDateRange}
-        setSelectedDateRange={setSelectedDateRange}
-      />
+      <div className="mb-8">
+        <ComplaintsFilters
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedDepartment={selectedDepartment}
+          setSelectedDepartment={setSelectedDepartment}
+          selectedStatus={selectedStatus}
+          setSelectedStatus={setSelectedStatus}
+          selectedPriority={selectedPriority}
+          setSelectedPriority={setSelectedPriority}
+          selectedDateRange={selectedDateRange}
+          setSelectedDateRange={setSelectedDateRange}
+          selectedDistrict={selectedDistrict}
+          setSelectedDistrict={setSelectedDistrict}
+          selectedAssigned={selectedAssigned}
+          setSelectedAssigned={setSelectedAssigned}
+        />
+      </div>
 
       {/* Complaints Table */}
-      <ComplaintsTable
-        complaints={complaintsList}
-        loading={loadingComplaints}
-        searchQuery={searchQuery}
-        selectedDepartment={selectedDepartment}
-        selectedStatus={selectedStatus}
-        selectedPriority={selectedPriority}
-        selectedDateRange={selectedDateRange}
-        departments={departments}
-        onView={handleViewComplaint}
-        onUpdate={handleUpdateComplaint}
-        onDelete={handleDeleteComplaint}
-      />
+      <div className="mb-8">
+        <ComplaintsTable
+          complaints={complaintsList}
+          loading={loadingComplaints}
+          searchQuery={searchQuery}
+          selectedDepartment={selectedDepartment}
+          selectedStatus={selectedStatus}
+          selectedPriority={selectedPriority}
+          selectedDateRange={selectedDateRange}
+          selectedDistrict={selectedDistrict}
+          selectedAssigned={selectedAssigned}
+          departments={departments}
+          onView={handleViewComplaint}
+          onUpdate={handleUpdateComplaint}
+          onDelete={handleDeleteComplaint}
+        />
+      </div>
+      
+      {/* Pagination Controls */}
+      {!loadingComplaints && complaintsList.length > 0 && (
+        <div className="flex items-center justify-between mt-4 px-2">
+          <div className="text-sm text-gray-700">
+            {(() => {
+              const computedStart = totalItems === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1
+              const computedEnd = totalItems === 0 ? 0 : Math.min(currentPage * itemsPerPage, totalItems)
+              const start = serverStart ?? computedStart
+              const end = serverEnd ?? computedEnd
+              return `Showing ${start} to ${end} of ${totalItems} complaints`
+            })()}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {(() => {
+                const maxVisiblePages = 5
+                let startPage = Math.max(1, currentPage - 2)
+                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+                
+                // Adjust for edge cases
+                if (endPage - startPage < maxVisiblePages - 1) {
+                  endPage = startPage + maxVisiblePages - 1
+                }
+                
+                return Array.from({ length: endPage - startPage + 1 }, (_, i) => {
+                  const pageNum = startPage + i
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1 text-sm rounded-md ${
+                        pageNum === currentPage
+                          ? 'bg-sidebar-primary text-white'
+                          : 'bg-white border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })
+              })()}
+            </div>
+            
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* View Modal */}
       {isModalOpen && selectedComplaint && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-slate-900">Complaint Details</h2>
+              <h2 className="text-xl font-semibold text-sidebar-primary">Complaint Details</h2>
               <button 
                 onClick={handleCloseModal}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="text-slate-400 hover:text-sidebar-primary transition-colors"
               >
                 ×
               </button>
@@ -345,47 +477,47 @@ export default function AllComplaintsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Complaint ID</p>
-                  <p className="text-slate-900">{(selectedComplaint as any).id}</p>
+                  <p className="text-sidebar-primary">{(selectedComplaint as any).id}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-700">Category</p>
-                  <p className="text-slate-900">{selectedComplaint.Category}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.Category}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Location</p>
-                  <p className="text-slate-900">{selectedComplaint.location_address}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.location_address}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-700">District</p>
-                  <p className="text-slate-900">{selectedComplaint.location_District}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.location_District}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Priority</p>
-                  <p className="text-slate-900">{selectedComplaint.priority_level}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.priority_level}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-700">Status</p>
-                  <p className="text-slate-900">{selectedComplaint.status}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.status}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Date</p>
-                  <p className="text-slate-900">{selectedComplaint.current_time ? new Date(selectedComplaint.current_time).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.current_time ? new Date(selectedComplaint.current_time).toLocaleDateString() : 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-700">Taluk</p>
-                  <p className="text-slate-900">{selectedComplaint.location_taluk}</p>
+                  <p className="text-sidebar-primary">{selectedComplaint.location_taluk}</p>
                 </div>
               </div>
                 <div className="mt-6 flex justify-end gap-3">
                 <button 
                   onClick={() => selectedComplaint && handleUpdateComplaint(selectedComplaint)}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                  className="px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary transition-colors"
                 >
                   Update Complaint
                 </button>
@@ -407,7 +539,7 @@ export default function AllComplaintsPage() {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Edit Complaint</h2>
+                <h2 className="text-lg font-bold text-sidebar-primary">Edit Complaint</h2>
                 <p className="text-xs text-slate-500 mt-0.5">ID: {editingComplaint.id}</p>
               </div>
               <button onClick={() => { setIsEditModalOpen(false); setEditingComplaint(null) }} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 text-slate-500 text-xl">&times;</button>
@@ -415,16 +547,16 @@ export default function AllComplaintsPage() {
             <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
-                <input value={editingComplaint.title} onChange={(e) => setEditingComplaint({ ...editingComplaint, title: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                <input value={editingComplaint.title} onChange={(e) => setEditingComplaint({ ...editingComplaint, title: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                <textarea rows={3} value={editingComplaint.Description} onChange={(e) => setEditingComplaint({ ...editingComplaint, Description: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+                <textarea rows={3} value={editingComplaint.Description} onChange={(e) => setEditingComplaint({ ...editingComplaint, Description: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
-                  <select value={editingComplaint.priority_level} onChange={(e) => setEditingComplaint({ ...editingComplaint, priority_level: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select value={editingComplaint.priority_level} onChange={(e) => setEditingComplaint({ ...editingComplaint, priority_level: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent">
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
                     <option value="High">High</option>
@@ -432,7 +564,7 @@ export default function AllComplaintsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                  <select value={editingComplaint.status} onChange={(e) => setEditingComplaint({ ...editingComplaint, status: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                  <select value={editingComplaint.status} onChange={(e) => setEditingComplaint({ ...editingComplaint, status: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent">
                     <option value="Pending">Pending</option>
                     <option value="in-progress">In Progress</option>
                     <option value="resolved">Resolved</option>
@@ -442,17 +574,17 @@ export default function AllComplaintsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Location Address</label>
-                  <input value={editingComplaint.location_address} onChange={(e) => setEditingComplaint({ ...editingComplaint, location_address: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input value={editingComplaint.location_address} onChange={(e) => setEditingComplaint({ ...editingComplaint, location_address: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">District</label>
-                  <input value={editingComplaint.location_District} onChange={(e) => setEditingComplaint({ ...editingComplaint, location_District: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  <input value={editingComplaint.location_District} onChange={(e) => setEditingComplaint({ ...editingComplaint, location_District: e.target.value })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sidebar-primary focus:border-transparent" />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-xl">
               <button onClick={() => { setIsEditModalOpen(false); setEditingComplaint(null) }} className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 text-sm font-medium hover:bg-slate-100 transition-colors">Cancel</button>
-              <button onClick={saveEditedComplaint} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Save Changes</button>
+              <button onClick={saveEditedComplaint} className="px-4 py-2 bg-sidebar-primary text-white rounded-lg text-sm font-medium hover:bg-sidebar-primary transition-colors">Save Changes</button>
             </div>
           </div>
         </div>
@@ -468,7 +600,7 @@ export default function AllComplaintsPage() {
                   <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Delete Complaint</h2>
+                  <h2 className="text-lg font-bold text-sidebar-primary">Delete Complaint</h2>
                   <p className="text-sm text-slate-500">This action cannot be undone</p>
                 </div>
               </div>
@@ -484,5 +616,5 @@ export default function AllComplaintsPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

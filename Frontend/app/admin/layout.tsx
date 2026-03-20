@@ -2,12 +2,11 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Menu, X, Search, LogOut, Settings, LayoutDashboard, FileText, Users, Building2, UserCog, Tag, Home } from 'lucide-react'
+import { Menu, X, LogOut, Settings, LayoutDashboard, FileText, Users, Building2, UserCog, Tag, Home } from 'lucide-react'
 import RequireAuth from '@/components/auth/RequireAuth'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
   const pathname = usePathname()
   const router = useRouter()
 
@@ -19,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // { icon: Building2, label: 'Departments', path: '/admin/departments', group: 'Organization' },
     { icon: UserCog, label: 'Officers', path: '/admin/officers', group: 'Organization' },
     { icon: Users, label: 'Users', path: '/admin/users', group: 'Organization' },
-    { icon: Tag, label: 'Categories', path: '/admin/categories', group: 'Configuration' },
+    { icon: Building2, label: 'Departments', path: '/admin/departments', group: 'Organization' },
     { icon: Settings, label: 'Settings', path: '/admin/settings', group: 'Configuration' },
   ]
 
@@ -116,26 +115,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Search */}
-              <div className="hidden md:flex items-center gap-2 bg-[#F8FAFC] px-4 py-2 rounded-lg border border-[#E2E8F0]">
-                <Search className="w-4 h-4 text-[#64748B]" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent text-sm outline-none w-64 text-[#1E293B] placeholder:text-[#64748B]"
-                />
-              </div>
-
-
-
               {/* Profile */}
               <button 
                 onClick={() => router.push('/admin/settings')}
                 className="flex items-center gap-3 pl-4 border-l border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors"
               >
-                <div className="w-9 h-9 rounded-full bg-[#2563EB] text-white flex items-center justify-center font-semibold text-sm">
+                <div className="w-9 h-9 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-semibold text-sm">
                   AD
                 </div>
                 <div className="hidden md:block">

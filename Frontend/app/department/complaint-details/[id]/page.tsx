@@ -33,6 +33,7 @@ interface ComplaintDetails {
   location_district: string
   location_taluk: string
   officer_id?: string
+  assignedOfficer?: { id: number; name?: string; email?: string | null; phone?: string | null; is_available?: boolean }
 }
 
 const statusColors = {
@@ -54,8 +55,8 @@ export default function ComplaintDetailsPage({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
-  // Unwrap the params Promise
-  const { id } = use(params)
+  // Unwrap params (may be a Promise) using React.use to support Next.js routing
+  const { id } = use(params) || { id: undefined }
   
   // Validate ID
   if (!id || isNaN(Number(id))) {
@@ -121,13 +122,18 @@ export default function ComplaintDetailsPage({ params }: { params: Promise<{ id:
       }
       
       const data = await response.json()
-      console.log('Response data:', data)
+      console.log('=== COMPLETE API RESPONSE ===')
+      console.log('Full response:', JSON.stringify(data, null, 2))
+      console.log('assigned_officer field:', data.assigned_officer)
+      console.log('officer_id field:', data.officer_id)
+      console.log('Type of assigned_officer:', typeof data.assigned_officer)
+      console.log('assigned_officer keys:', data.assigned_officer ? Object.keys(data.assigned_officer) : 'null/undefined')
       
       if (data.error) {
         throw new Error(data.error)
       }
       
-      setComplaint({
+      const complaintData = {
         comp_name: data.comp_name,
         filed_on: data.filed_on,
         description: data.description,
@@ -137,14 +143,120 @@ export default function ComplaintDetailsPage({ params }: { params: Promise<{ id:
         location_address: data.location_address,
         location_district: data.location_district,
         location_taluk: data.location_taluk,
-        officer_id: data.officer_id
-      })
+        officer_id: data.officer_id,
+        assignedOfficer: data.assigned_officer || null
+      }
+      
+      console.log('=== COMPLAINT DATA TO SET ===')
+      console.log('complaintData:', JSON.stringify(complaintData, null, 2))
+      
+      setComplaint(complaintData)
+      
+      console.log('=== AFTER SET STATE ===')
+      console.log('Set complaint with assignedOfficer:', data.assigned_officer)
       
     } catch (error) {
       console.error('Error fetching complaint details:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       console.error('Detailed error:', errorMessage)
       setError(`Failed to load complaint details: ${errorMessage}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const assignOfficer = async () => {
+    // kept for backward-compat if called directly
+    console.warn('assignOfficer called directly; use assign form instead')
+  }
+
+  // New form state and fetch for department officers
+  const [officers, setOfficers] = useState<Array<{ id: number; name: string; officer_id: string }>>([])
+  const [selectedOfficer, setSelectedOfficer] = useState<string>('')
+  const [loadingOfficers, setLoadingOfficers] = useState(false)
+
+  const fetchOfficers = async () => {
+    setLoadingOfficers(true)
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const token = localStorage.getItem(
+        'access_token') || localStorage.getItem('adminToken')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token && token !== 'undefined' && token !== 'null') headers['Authorization'] = `Bearer ${token}`
+
+      const resp = await fetch(`${API_BASE}/api/department/officers/`, { headers })
+      if (!resp.ok) {
+        console.error('Failed to fetch department officers', resp.status)
+        setOfficers([])
+        return
+      }
+      const data = await resp.json()
+      // normalize to {id, name, officer_id}
+      const list = (data || []).map((o: any) => ({ id: o.id, name: o.name || o.get_full_name || String(o.id), officer_id: o.officer_id || o.id }))
+      setOfficers(list)
+      if (list.length > 0) setSelectedOfficer(list[0].officer_id)
+    } catch (err) {
+      console.error('Error fetching officers', err)
+      setOfficers([])
+    } finally {
+      setLoadingOfficers(false)
+    }
+  }
+
+  const submitAssign = async () => {
+    if (!complaint) return
+    if (!selectedOfficer) return alert('Please select an officer')
+    setLoading(true)
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const token = localStorage.getItem('access_token') || localStorage.getItem('adminToken')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token && token !== 'undefined' && token !== 'null') headers['Authorization'] = `Bearer ${token}`
+
+      const resp = await fetch(`${API_BASE}/api/assigncomp/${id}/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ officer_id: selectedOfficer })
+      })
+      if (!resp.ok) {
+        const txt = await resp.text()
+        throw new Error(`Assign failed: ${resp.status} ${resp.statusText} - ${txt}`)
+      }
+      setComplaint({ ...complaint, officer_id: selectedOfficer })
+      alert('Officer assigned successfully')
+    } catch (err) {
+      console.error('Error assigning officer:', err)
+      alert('Failed to assign officer: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markResolved = async () => {
+    if (!complaint) return
+    if (!confirm('Mark this complaint as resolved?')) return
+    setLoading(true)
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const token = localStorage.getItem('access_token') || localStorage.getItem('adminToken')
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token && token !== 'undefined' && token !== 'null') headers['Authorization'] = `Bearer ${token}`
+
+      const resp = await fetch(`${API_BASE}/api/complaintupdate/${id}/`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ status: 'resolved' })
+      })
+      if (!resp.ok) {
+        const txt = await resp.text()
+        throw new Error(`Update failed: ${resp.status} ${resp.statusText} - ${txt}`)
+      }
+      // update local state
+      setComplaint({ ...complaint, status: 'resolved' })
+      alert('Complaint marked resolved')
+    } catch (err) {
+      console.error('Error marking resolved:', err)
+      alert('Failed to mark resolved: ' + (err instanceof Error ? err.message : String(err)))
     } finally {
       setLoading(false)
     }
@@ -332,47 +444,93 @@ export default function ComplaintDetailsPage({ params }: { params: Promise<{ id:
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-              <div className="space-y-3">
-                <button className="w-full flex items-center gap-3 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  <User className="w-5 h-5" />
-                  Assign Officer
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                  <CheckCircle2 className="w-5 h-5" />
-                  Mark Resolved
-                </button>
-                <button className="w-full flex items-center gap-3 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                  <MessageSquare className="w-5 h-5" />
-                  Add Note
-                </button>
-              </div>
-            </div>
-
             {/* Assigned Officer */}
-            {complaint.officer_id && (
+            {console.log('=== RENDER DEBUG ===')}
+            {console.log('complaint object:', complaint)}
+            {console.log('complaint.assignedOfficer:', complaint.assignedOfficer)}
+            {console.log('complaint.officer_id:', complaint.officer_id)}
+            {complaint.assignedOfficer && complaint.assignedOfficer.id ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Officer</h3>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User className="w-6 h-6 text-blue-600" />
+                <div className="space-y-4">
+                  {/* Officer Basic Info */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 text-lg">
+                        {complaint.assignedOfficer.name || `Officer ID: ${complaint.assignedOfficer.id}`}
+                      </p>
+                      <p className="text-sm text-gray-600">ID: {complaint.assignedOfficer.id}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">Officer ID: {complaint.officer_id}</p>
-                    <p className="text-sm text-gray-600">Public Works Department</p>
+                  
+                  {/* Officer Contact Details */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">Contact Information</h4>
+                    <div className="space-y-2">
+                      {complaint.assignedOfficer.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">{complaint.assignedOfficer.email}</span>
+                        </div>
+                      )}
+                      {complaint.assignedOfficer.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">{complaint.assignedOfficer.phone}</span>
+                        </div>
+                      )}
+                      {!complaint.assignedOfficer.email && !complaint.assignedOfficer.phone && (
+                        <p className="text-sm text-gray-500 italic">No contact information available</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Assignment Status */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${
+                          complaint.assignedOfficer?.is_available ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        <span className={`text-sm font-medium ${
+                          complaint.assignedOfficer?.is_available ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {complaint.assignedOfficer?.is_available ? 'Available' : 'Unavailable'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        Active Assignment
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Officer is {complaint.assignedOfficer?.is_available ? 'currently available' : 'currently unavailable'} for new assignments
+                    </p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <Phone className="w-4 h-4" />
-                    Contact Officer
-                  </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <Mail className="w-4 h-4" />
-                    Send Message
-                  </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Officer</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-sm text-gray-600 font-medium">Not Assigned to Officer</span>
+                  </div>
+                  <p className="text-sm text-gray-500">This complaint has not been assigned to any officer yet.</p>
+                  {complaint.officer_id && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                      <p className="text-xs text-amber-800">
+                        <strong>Note:</strong> Officer ID exists ({complaint.officer_id}) but full details are not available. 
+                        The assignment may need to be updated.
+                      </p>
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-400 italic">
+                    Contact your department administrator to assign an officer to this complaint.
+                  </div>
                 </div>
               </div>
             )}

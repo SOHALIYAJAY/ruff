@@ -207,7 +207,7 @@ export default function CategoryComplaintsChart() {
 
         {/* Charts */}
         {chartType === 'bar' ? (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
@@ -233,7 +233,7 @@ export default function CategoryComplaintsChart() {
             </BarChart>
           </ResponsiveContainer>
         ) : chartType === 'pie' ? (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
                 data={chartData}
@@ -255,7 +255,7 @@ export default function CategoryComplaintsChart() {
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
@@ -339,122 +339,6 @@ export default function CategoryComplaintsChart() {
               {chartData[chartData.length - 1]?.complaints || 0} complaints
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Monthly Trends Chart */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Monthly Category Trends</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Top 5 categories performance over time
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value as any)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="all">All Time</option>
-              <option value="6months">Last 6 Months</option>
-              <option value="3months">Last 3 Months</option>
-            </select>
-          </div>
-        </div>
-
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={lineChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px'
-              }}
-            />
-            <Legend />
-            {getTopCategories().map((cat, index) => (
-              <Line
-                key={cat}
-                type="monotone"
-                dataKey={cat}
-                stroke={COLORS[index % COLORS.length]}
-                strokeWidth={2}
-                dot={{ fill: COLORS[index % COLORS.length], r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600">
-            <span className="font-medium">Insight:</span> Track how different categories perform over time to identify seasonal patterns and trends.
-          </p>
-        </div>
-      </div>
-
-      {/* Category Performance Table */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Category Performance Details</h2>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Category</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Complaints</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Percentage</th>
-                <th className="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chartData.map((cat, index) => {
-                const percentage = ((cat.complaints / totalComplaints) * 100).toFixed(1)
-                const status = cat.complaints > totalComplaints / chartData.length ? 'High' : 'Normal'
-                
-                return (
-                  <tr key={cat.category} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        ></div>
-                        <span className="font-medium text-gray-900">{cat.category}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center font-semibold">{cat.complaints}</td>
-                    <td className="py-3 px-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-blue-600 h-2 rounded-full" 
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-xs text-gray-600">{percentage}%</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        status === 'High' 
-                          ? 'bg-red-100 text-red-700' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {status}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 interface Complaint {
   id: string
   title: string
-  Category: string
+  category_name: string
   Description: string
   location_address: string
   location_District: string
@@ -101,7 +101,7 @@ COMPLAINT DETAILS
 =================
 ID: ${complaint.id}
 Title: ${complaint.title}
-Category: ${complaint.Category}
+Category: ${complaint.category_name}
 Priority: ${complaint.priority_level}
 Status: ${complaint.status}
 Date: ${complaint.current_time || 'N/A'}
@@ -231,7 +231,7 @@ ${complaint.estimated_resolution ? `ESTIMATED RESOLUTION: ${complaint.estimated_
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500 block mb-2">Category</label>
-                      <p className="text-sm text-gray-900">{complaint.Category}</p>
+                      <p className="text-sm text-gray-900">{complaint.category_name}</p>
                     </div>
                   </div>
                 </div>

@@ -1,10 +1,9 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from "react"
-import { Search, Filter, MoreVertical, Edit, Eye, UserPlus, Shield, AlertCircle, Users, TrendingUp, Activity, RefreshCw, Trash2 } from "lucide-react"
-import { useRouter } from "next/navigation"
-import StatsCard from "@/components/ui/stats-card"
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import React, { useState, useEffect } from 'react'
+import { Users, Activity, AlertCircle, TrendingUp, Search, Edit, Trash2, Shield, RefreshCw } from 'lucide-react'
+import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts'
+import StatsCard from '@/components/ui/stats-card'
 
 interface User {
   id: number
@@ -25,20 +24,27 @@ interface RoleData {
   color: string
 }
 
-interface MonthlyData {
-  month: string
-  users: number
+interface AnalyticsData {
+  totalUsers: number
+  activeUsers: number
+  inactiveUsers: number
+  totalComplaints: number
+  monthlyRegistrations: Array<{month: string, users: number}>
+  roleDistribution: RoleData[]
 }
 
-export default function AdminUsersPage() {
+export default function DepartmentUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [yearFilter, setYearFilter] = useState<string | 'rolling'>('rolling')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
   const [newUser, setNewUser] = useState({
     username: '',
     email: '',
@@ -47,29 +53,63 @@ export default function AdminUsersPage() {
     role: 'user',
     password: ''
   })
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
-  
-  const router = useRouter()
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
-
-  // Analytics data
-  const [analyticsData, setAnalyticsData] = useState({
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     totalUsers: 0,
     activeUsers: 0,
     inactiveUsers: 0,
     totalComplaints: 0,
-    roleDistribution: [] as RoleData[],
-    monthlyRegistrations: [] as MonthlyData[]
+    monthlyRegistrations: [],
+    roleDistribution: []
   })
 
-  useEffect(() => {
-    processAnalytics()
-  }, [])
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
 
+  // Calculate monthly registrations from users.
+  // If `year` === 'rolling' => last 12 months (oldest -> newest).
+  // If `year` is a numeric string like '2020' => Jan..Dec for that year.
+  const calculateMonthlyFromUsers = (users: User[], year: string | 'rolling' = 'rolling') => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+
+    if (year === 'rolling') {
+      const months: { month: number; year: number; label: string }[] = []
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthShort = d.toLocaleString('default', { month: 'short' })
+        const y = d.getFullYear()
+        const label = y === currentYear ? monthShort : `${monthShort} ${y}`
+        months.push({ month: d.getMonth(), year: y, label })
+      }
+
+      return months.map(m => {
+        const monthUsers = users.filter((user: User) => {
+          const userDate = new Date(user.date_joined)
+          return userDate.getFullYear() === m.year && userDate.getMonth() === m.month
+        })
+
+        return { month: m.label, users: monthUsers.length }
+      })
+    }
+
+    // Specific calendar year
+    const parsedYear = parseInt(year, 10)
+    const months = Array.from({ length: 12 }).map((_, idx) => {
+      const d = new Date(parsedYear, idx, 1)
+      const monthShort = d.toLocaleString('default', { month: 'short' })
+      const label = parsedYear === currentYear ? monthShort : `${monthShort}`
+      return { month: idx, year: parsedYear, label }
+    })
+
+    return months.map(m => {
+      const monthUsers = users.filter((user: User) => {
+        const userDate = new Date(user.date_joined)
+        return userDate.getFullYear() === m.year && userDate.getMonth() === m.month
+      })
+      return { month: m.label, users: monthUsers.length }
+    })
+  }
+
+  // Fetch monthly registrations from API
   const fetchMonthlyRegistrations = async () => {
     try {
       const token = localStorage.getItem('access_token')
@@ -81,8 +121,7 @@ export default function AdminUsersPage() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      // Try to fetch from the monthly registrations API endpoint
-      const response = await fetch(`${API_BASE}/api/admin/monthly-registrations/`, { headers })
+      const response = await fetch(`${API_BASE}/api/user-registrations/monthly/`, { headers })
       
       if (response.ok) {
         const responseData = await response.json()
@@ -94,29 +133,29 @@ export default function AdminUsersPage() {
           monthlyData = responseData
         } else if (responseData.data && Array.isArray(responseData.data)) {
           monthlyData = responseData.data
-        } else if (responseData.results && Array.isArray(responseData.results)) {
-          monthlyData = responseData.results
         } else if (responseData.monthly_data && Array.isArray(responseData.monthly_data)) {
           monthlyData = responseData.monthly_data
-        } else {
-          // Fallback: process from users data if API doesn't have specific endpoint
-          return null
         }
         
-        // Transform data to ensure proper format
+        // Transform data if needed
         return monthlyData.map((item: any) => ({
           month: item.month || item.name || 'Unknown',
-          users: parseInt(item.users || item.count || item.registrations || 0)
+          users: item.users || item.count || item.value || 0
         }))
       }
     } catch (error) {
       console.error('Error fetching monthly registrations:', error)
+      return null
     }
-    
     return null
   }
 
-  const processAnalytics = async () => {
+  // Fetch users from API
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
     try {
       setLoading(true)
       const token = localStorage.getItem('access_token')
@@ -128,7 +167,12 @@ export default function AdminUsersPage() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch(`${API_BASE}/api/users/`, { headers })
+      const response = await fetch(`${API_BASE}/api/users/`, {
+        method: 'GET',
+        headers
+      })
+
+      let processedUsers: User[] = []
       
       if (response.ok) {
         const responseData = await response.json()
@@ -146,8 +190,8 @@ export default function AdminUsersPage() {
           users = []
         }
         
-        // Add missing fields with defaults
-        const processedUsers = users.map((user: any) => ({
+        // Add missing fields with defaults and filter out admin users
+        processedUsers = users.map((user: any) => ({
           id: user.id || 0,
           username: user.username || user.email || '',
           email: user.email || '',
@@ -165,38 +209,38 @@ export default function AdminUsersPage() {
         })
         
         console.log('Processed users (filtered):', processedUsers)
+        // Debug: show minimal join-date info for tracing
+        console.log('Processed users dates:', processedUsers.map(u => ({ id: u.id, date_joined: u.date_joined, role: u.role })))
         setUsers(processedUsers)
 
         // Calculate analytics
         const totalUsers = processedUsers.length
-        const activeUsers = processedUsers.filter(u => u.is_active).length
+        const activeUsers = processedUsers.filter((u: User) => u.is_active).length
         const inactiveUsers = totalUsers - activeUsers
-        const totalComplaints = processedUsers.reduce((sum, u) => sum + (u.complaint_count || 0), 0)
+        const totalComplaints = processedUsers.reduce((sum: number, u: User) => sum + (u.complaint_count || 0), 0)
 
         // Role distribution
-        const roleCounts = processedUsers.reduce((acc, user) => {
-          const role = user.role || 'Unknown'
-          acc[role] = (acc[role] || 0) + 1
-          return acc
-        }, {} as Record<string, number>)
+        const calculateRoleDistribution = (users: User[]): RoleData[] => {
+          const roleCounts = users.reduce((acc: Record<string, number>, user: User) => {
+            const role = user.role || 'User'
+            acc[role] = (acc[role] || 0) + 1
+            return acc
+          }, {})
 
-        const roleDistribution = Object.entries(roleCounts).map(([name, value], index) => {
-          // Define available colors for different roles
-          const availableColors = ['#dc2626', '#2563eb', '#059669', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
-          return {
-            name: name.replace('-', ' '),
-            value,
-            color: availableColors[index % availableColors.length]
-          }
-        })
-
-        // Try to fetch monthly registrations from database
-        let monthlyRegistrations = await fetchMonthlyRegistrations()
-        
-        // If API doesn't have monthly data, calculate from users
-        if (!monthlyRegistrations) {
-          monthlyRegistrations = calculateMonthlyFromUsers(processedUsers)
+          return Object.entries(roleCounts).map(([name, value]) => ({
+            name,
+            value: Number(value),
+            color: name === 'Admin' ? '#8b5cf6' : name === 'Department-User' ? '#3b82f6' : '#10b981'
+          }))
         }
+
+        const roleDistribution = calculateRoleDistribution(processedUsers)
+
+        // Calculate monthly registrations from the processed users (DB source)
+        // processedUsers already excludes admin/administrator roles above,
+        // so this ensures Admin users are not counted in the chart.
+        const monthlyRegistrations = calculateMonthlyFromUsers(processedUsers, yearFilter)
+        console.log('Computed monthlyRegistrations:', monthlyRegistrations)
 
         setAnalyticsData({
           totalUsers,
@@ -206,6 +250,8 @@ export default function AdminUsersPage() {
           roleDistribution,
           monthlyRegistrations
         })
+      } else {
+        console.error('Failed to fetch users:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Error fetching users:', error)
@@ -231,74 +277,101 @@ export default function AdminUsersPage() {
           last_name: 'User',
           role: 'Department User',
           is_active: true,
-          date_joined: '2024-02-01',
+          date_joined: '2024-01-01',
           last_login: '2024-12-01',
           complaint_count: 3
         }
       ]
+      
+      // Calculate analytics for fallback data
+      const totalUsers = fallbackUsers.length
+      const activeUsers = fallbackUsers.filter((u: User) => u.is_active).length
+      const inactiveUsers = totalUsers - activeUsers
+      const totalComplaints = fallbackUsers.reduce((sum: number, u: User) => sum + (u.complaint_count || 0), 0)
+
+      // Role distribution
+      const calculateRoleDistribution = (users: User[]): RoleData[] => {
+        const roleCounts = users.reduce((acc: Record<string, number>, user: User) => {
+          const role = user.role || 'User'
+          acc[role] = (acc[role] || 0) + 1
+          return acc
+        }, {})
+
+        return Object.entries(roleCounts).map(([name, value]) => ({
+          name,
+          value: Number(value),
+          color: name === 'Admin' ? '#8b5cf6' : name === 'Department-User' ? '#3b82f6' : '#10b981'
+        }))
+      }
+
+      const roleDistribution = calculateRoleDistribution(fallbackUsers)
+
+      // Generate fallback monthly data
+      const monthlyRegistrations = [
+        { month: 'Jan', users: 2 },
+        { month: 'Feb', users: 1 },
+        { month: 'Mar', users: 3 },
+        { month: 'Apr', users: 1 },
+        { month: 'May', users: 2 },
+        { month: 'Jun', users: 1 },
+        { month: 'Jul', users: 0 },
+        { month: 'Aug', users: 1 },
+        { month: 'Sep', users: 2 },
+        { month: 'Oct', users: 1 },
+        { month: 'Nov', users: 3 },
+        { month: 'Dec', users: 1 }
+      ]
+
       setUsers(fallbackUsers)
+      setAnalyticsData({
+        totalUsers,
+        activeUsers,
+        inactiveUsers,
+        totalComplaints,
+        roleDistribution,
+        monthlyRegistrations
+      })
     } finally {
       setLoading(false)
     }
   }
-
-  const calculateMonthlyFromUsers = (users: User[]) => {
-    // Calculate monthly registrations from user join dates
-    const monthlyCounts: Record<string, number> = {}
-    
-    // Initialize all months with 0
-    const allMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    allMonths.forEach(month => {
-      monthlyCounts[month] = 0
-    })
-    
-    users.forEach(user => {
-      if (user.date_joined) {
-        try {
-          const joinDate = new Date(user.date_joined)
-          if (!isNaN(joinDate.getTime())) {
-            const monthName = joinDate.toLocaleString('default', { month: 'short' })
-            if (monthlyCounts.hasOwnProperty(monthName)) {
-              monthlyCounts[monthName]++
-            }
-          }
-        } catch (error) {
-          console.error('Error parsing date:', user.date_joined, error)
-        }
-      }
-    })
-    
-    return Object.entries(monthlyCounts).map(([month, users]) => ({
-      month,
-      users
-    }))
-  }
-
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter
-    const matchesStatus = statusFilter === 'all' || 
-                        (statusFilter === 'active' && user.is_active) ||
-                        (statusFilter === 'inactive' && !user.is_active)
-    
-    return matchesSearch && matchesRole && matchesStatus
-  })
-
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem)
 
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, roleFilter, statusFilter])
 
+  // Recompute monthly registrations when users or yearFilter change
+  useEffect(() => {
+    setAnalyticsData(prev => ({
+      ...prev,
+      monthlyRegistrations: calculateMonthlyFromUsers(users, yearFilter)
+    }))
+  }, [users, yearFilter])
+
   const handleCreateUser = async () => {
+    // Validate required fields
+    if (!newUser.username?.trim()) {
+      alert('Username is required')
+      return
+    }
+    if (!newUser.email?.trim()) {
+      alert('Email is required')
+      return
+    }
+    if (!newUser.password?.trim()) {
+      alert('Password is required')
+      return
+    }
+    if (newUser.password.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
+      alert('Please enter a valid email address')
+      return
+    }
+
     try {
       const token = localStorage.getItem('access_token')
       const headers: Record<string, string> = {
@@ -319,8 +392,11 @@ export default function AdminUsersPage() {
         const responseData = await response.json()
         const createdUser = responseData.data || responseData
         
-        // Add the new user to the list
-        setUsers([...users, createdUser])
+        // Add to new user to list with proper error handling
+        if (createdUser && createdUser.id) {
+          setUsers(prev => [...prev, createdUser])
+        }
+        
         setShowCreateModal(false)
         setNewUser({
           username: '',
@@ -336,11 +412,12 @@ export default function AdminUsersPage() {
       } else {
         const errorData = await response.json()
         console.error('Failed to create user:', errorData)
-        alert('Failed to create user. Please check the console for details.')
+        const errorMessage = errorData.message || errorData.error || errorData.email || errorData.username || 'Failed to create user. Please check console for details.'
+        alert(errorMessage)
       }
     } catch (error) {
       console.error('Error creating user:', error)
-      alert('Error creating user. Please try again.')
+      alert('Network error. Please check your connection and try again.')
     }
   }
 
@@ -365,13 +442,13 @@ export default function AdminUsersPage() {
       })
 
       if (response.ok) {
-        // Remove the deleted user from the list
+        // Remove deleted user from list
         setUsers(users.filter(user => user.id !== userId))
         alert('User deleted successfully!')
       } else {
         const errorData = await response.json()
         console.error('Failed to delete user:', errorData)
-        alert('Failed to delete user. Please check the console for details.')
+        alert('Failed to delete user. Please check console for details.')
       }
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -402,7 +479,7 @@ export default function AdminUsersPage() {
         const responseData = await response.json()
         const updatedUser = responseData.data || responseData
         
-        // Update the user in the list
+        // Update user in list
         setUsers(users.map(user => 
           user.id === editingUser.id ? { ...user, ...updatedUser } : user
         ))
@@ -414,7 +491,7 @@ export default function AdminUsersPage() {
       } else {
         const errorData = await response.json()
         console.error('Failed to update user:', errorData)
-        alert('Failed to update user. Please check the console for details.')
+        alert('Failed to update user. Please check console for details.')
       }
     } catch (error) {
       console.error('Error updating user:', error)
@@ -441,6 +518,38 @@ export default function AdminUsersPage() {
     }
   }
 
+  const filteredUsers = users.filter((user: User) => {
+    const matchesSearch = 
+      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    // Normalize role filter to accept backend role variants like 'Admin-User', 'Civic-User', 'Department-User'
+    const roleMap: Record<string, string[]> = {
+      admin: ['admin', 'admin-user'],
+      officer: ['officer', 'department-user'],
+      'civic user': ['user', 'civic-user', 'civic user']
+    }
+
+    const matchesRole = (() => {
+      if (roleFilter === 'all') return true
+      const userRole = (user.role || '').toString().toLowerCase()
+      const mapped = roleMap[roleFilter.toLowerCase()] || [roleFilter.toLowerCase()]
+      return mapped.some(r => userRole.includes(r))
+    })()
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && user.is_active) ||
+      (statusFilter === 'inactive' && !user.is_active)
+    
+    return matchesSearch && matchesRole && matchesStatus
+  })
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage)
+
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem)
+
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -452,7 +561,7 @@ export default function AdminUsersPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={processAnalytics}
+              onClick={fetchUsers}
               disabled={loading}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
             >
@@ -463,7 +572,7 @@ export default function AdminUsersPage() {
               onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary/90 transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               Add User
             </button>
           </div>
@@ -507,15 +616,34 @@ export default function AdminUsersPage() {
         />
       </div>
 
-      {/* Charts Section */}
-      <div className="space-y-6">
-        {/* Monthly Registrations Bar Chart - Full Width */}
+      {/* Charts Section: Bar and Pie side-by-side on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Monthly Registrations Bar Chart */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Monthly User Registrations</h3>
-            <p className="text-sm text-gray-500">New user registrations per month</p>
+          <div className="mb-6 flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Monthly User Registrations</h3>
+              <p className="text-sm text-gray-500">New user registrations per month</p>
+            </div>
+            <div>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value as any)}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                aria-label="Select year for registrations"
+              >
+                <option value="rolling">Last 12 months</option>
+                {(() => {
+                  const start = 2020
+                  const cur = new Date().getFullYear()
+                  return Array.from({ length: cur - start + 1 }, (_, i) => start + i).map(y => (
+                    <option key={y} value={String(y)}>{y}</option>
+                  ))
+                })()}
+              </select>
+            </div>
           </div>
-          <div className="h-80">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analyticsData.monthlyRegistrations}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -539,52 +667,59 @@ export default function AdminUsersPage() {
                 />
                 <Bar 
                   dataKey="users" 
-                  fill="#3b82f6" 
+                  fill="#2563eb" 
                   radius={[8, 8, 0, 0]}
+                  barSize={20}
+                  barCategoryGap="20%"
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Role Distribution Pie Chart - Below Bar Chart */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <div className="mb-6">
+        {/* Role Distribution Pie Chart */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col items-center">
+          <div className="mb-6 w-full">
             <h3 className="text-lg font-semibold text-gray-900">User Role Distribution</h3>
             <p className="text-sm text-gray-500">Distribution of users by role</p>
           </div>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={analyticsData.roleDistribution}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={60}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {analyticsData.roleDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value: any, name: any) => [`${value} users`, name]} />
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="w-full flex justify-center">
+            <div style={{ width: 180, height: 180 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analyticsData.roleDistribution}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={64}
+                    innerRadius={28}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {analyticsData.roleDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: any, name: any) => [`${value} users`, name]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="mt-6 space-y-2">
-            {analyticsData.roleDistribution.map((entry) => (
-              <div key={entry.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center">
-                  <div 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  <span className="text-gray-700">{entry.name}</span>
+          <div className="mt-6 w-full">
+            <div className="flex flex-col gap-2">
+              {analyticsData.roleDistribution.map((entry) => (
+                <div key={entry.name} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center">
+                    <div 
+                      className="w-3 h-3 rounded-full mr-2" 
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-gray-700">{entry.name}</span>
+                  </div>
+                  <span className="font-medium text-gray-900">{entry.value}</span>
                 </div>
-                <span className="font-medium text-gray-900">{entry.value}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -711,64 +846,64 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Pagination Controls */}
-          <div className="px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredUsers.length)} of {filteredUsers.length} users
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                
-                {/* Page Numbers */}
-                {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                  let pageNumber;
-                  if (totalPages <= 5) {
-                    pageNumber = index + 1;
-                  } else if (currentPage <= 3) {
-                    pageNumber = index + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNumber = totalPages - 4 + index;
-                  } else {
-                    pageNumber = currentPage - 2 + index;
-                  }
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination Controls */}
+            <div className="px-6 py-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredUsers.length)} of {filteredUsers.length} users
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
                   
-                  return (
-                    <button
-                      key={pageNumber}
-                      onClick={() => setCurrentPage(pageNumber)}
-                      className={`px-3 py-1 text-sm border rounded-md ${
-                        currentPage === pageNumber
-                          ? 'bg-sidebar-primary text-white border-sidebar-primary'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pageNumber}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
+                  {/* Page Numbers */}
+                  {[...Array(Math.min(5, totalPages))].map((_, index) => {
+                    let pageNumber;
+                    if (totalPages <= 5) {
+                      pageNumber = index + 1;
+                    } else if (currentPage <= 3) {
+                      pageNumber = index + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + index;
+                    } else {
+                      pageNumber = currentPage - 2 + index;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNumber}
+                        onClick={() => setCurrentPage(pageNumber)}
+                        className={`px-3 py-1 text-sm border rounded-md ${
+                          currentPage === pageNumber
+                            ? 'bg-sidebar-primary text-white border-sidebar-primary'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
           </>
         )}
       </div>

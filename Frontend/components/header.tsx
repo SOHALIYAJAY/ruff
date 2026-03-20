@@ -56,42 +56,35 @@ export default function Header() {
 
     switch (userRole) {
       case 'Civic-User':
-        // Civic User - can see complaints and raise complaints
         return [
-          { label: 'Home', href: '/' },
-          { label: 'About', href: '/about' },
           { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Contact', href: '/contact' },
           { label: 'My Complaints', href: '/my-complaints' },
           { label: 'Raise Complaint', href: '/raise-complaint' },
         ]
-      
       case 'Department-User':
-        // Department User - department dashboard, no complaints access
         return [
-          { label: 'About', href: '/about' },
-          { label: 'Department', href: '/department' },
-          { label: 'Contact', href: '/contact' },
+          { label: 'Dashboard', href: '/department' },
+          { label: 'Assigned Complaints', href: '/department/complaints' },
+          { label: 'Officers', href: '/department/officers' },
+          { label: 'Users', href: '/department/users' },
         ]
-      
-      case 'Admin-User':
-        // Admin User - admin dashboard only
-        return [
-          { label: 'About', href: '/about' },
-          { label: 'Admin', href: '/admin' },
-          { label: 'Contact', href: '/contact' },
-        ]
-      
-      default:
-        // Fallback to civic user navigation
+      case 'Officer':
+        // Show simplified navigation for Officers: Home, About, Officer Dashboard, Contact
         return [
           { label: 'Home', href: '/' },
           { label: 'About', href: '/about' },
-          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Officer Dashboard', href: '/officer' },
           { label: 'Contact', href: '/contact' },
-          { label: 'My Complaints', href: '/my-complaints' },
-          { label: 'Raise Complaint', href: '/raise-complaint' },
         ]
+      case 'Admin-User':
+        return [
+          { label: 'Dashboard', href: '/admin' },
+          { label: 'Complaints', href: '/admin/complaints' },
+          { label: 'Users', href: '/admin/users' },
+          { label: 'Categories', href: '/admin/categories' },
+        ]
+      default:
+        return []
     }
   }
 

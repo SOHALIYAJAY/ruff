@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button'
 interface Complaint {
   id: string
   title: string
-  Category: string
-  category_name?: string
+  category_name: string
   category_code?: string
   Description: string
   location_address: string
@@ -57,8 +56,7 @@ export default function ComplaintsList({
     .filter((c) => (filterStatus === 'all' ? true : c.status.toLowerCase() === filterStatus.toLowerCase()))
     .filter((c) => {
       if (categoryFilter === 'all') return true
-      // Check multiple possible category field names
-      const categoryValue = (c as any).category_name || (c as any).Category || ''
+      const categoryValue = c.category_name || ''
       return String(categoryValue) === String(categoryFilter)
     })
     .filter((c) => (priorityFilter === 'all' ? true : c.priority_level === priorityFilter))

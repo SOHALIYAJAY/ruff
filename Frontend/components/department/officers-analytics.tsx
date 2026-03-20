@@ -105,11 +105,15 @@ export default function OfficersAnalytics() {
     { name: 'Unavailable', value: analyticsData.unavailable_officers, color: '#ef4444' }
   ]
 
-  const departmentData = Object.entries(analyticsData.department_stats).map(([name, stats]) => ({
-    name,
-    officers: stats.officers,
-    complaints: stats.active_complaints
-  }))
+  // Category-wise Officers data - include ALL categories
+  const categoryData = Object.entries(analyticsData.department_stats || {})
+    .map(([categoryName, stats]) => ({
+      category: categoryName.length > 12 ? categoryName.substring(0, 12) + '...' : categoryName,
+      fullCategory: categoryName,
+      officers: stats.officers || 0,
+      complaints: stats.active_complaints || 0
+    }))
+    .sort((a, b) => b.officers - a.officers)
 
   return (
     <div className="space-y-5">
@@ -158,18 +162,53 @@ export default function OfficersAnalytics() {
           </ResponsiveContainer>
         </Card>
 
-        {/* Department Distribution */}
-        <Card title="Department Distribution">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={departmentData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="officers" fill="#3b82f6" />
-              <Bar dataKey="complaints" fill="#10b981" />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Category-wise Officers */}
+        <Card title={`Category-wise Officers (${categoryData.length} categories)`}>
+          <div className="overflow-x-auto">
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart 
+                data={categoryData}
+                margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="category" 
+                  tick={{ fontSize: 9 }}
+                  interval={0}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  allowDecimals={false}
+                  tick={{ fontSize: 10 }}
+                />
+                <Tooltip 
+                  formatter={(value: number, name: string, props: any) => {
+                    return [`${value} officers`, props.payload.fullCategory]
+                  }}
+                />
+                <Bar 
+                  dataKey="officers" 
+                  fill="#3b82f6"
+                  radius={[2, 2, 0, 0]}
+                  name="Officers"
+                  barSize={12}
+                  maxBarSize={15}
+                >
+                  {categoryData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.officers > 0 ? ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'][index % 8] : '#e5e7eb'}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-xs text-slate-500 text-center mt-1">
+            {categoryData.filter(c => c.officers > 0).length} categories with officers
+          </p>
         </Card>
       </div>
 

@@ -11,23 +11,21 @@ import {
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User },
-  { id: "security", label: "Security", icon: Lock },
+  { id: "query", label: "Query", icon: FileText },
   { id: "system", label: "System", icon: Settings },
 ]
 
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState("profile")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  // Password state for security tab
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  // Query State
+  const [queries, setQueries] = useState([])
+  const [queryLoading, setQueryLoading] = useState(false)
+  const [queryError, setQueryError] = useState("")
 
   // Profile State
   const [profile, setProfile] = useState({
@@ -53,11 +51,79 @@ export default function AdminSettingsPage() {
     sessionTimeout: 30
   })
 
+  // Notifications State
+  const [notifications, setNotifications] = useState({
+    emailComplaints: true,
+    emailResolutions: true,
+    smsAlerts: false,
+    pushNotifications: true,
+    weeklyReports: true,
+    criticalAlerts: true
+  })
+
+  // Log filter state
+  const [logFilter, setLogFilter] = useState("all")
+
   // Fetch initial data
   useEffect(() => {
     fetchProfileData()
     fetchSystemSettings()
+    fetchNotifications()
+    fetchQueries()
   }, [])
+
+  const fetchQueries = async () => {
+    try {
+      setQueryLoading(true)
+      setQueryError("")
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/contact/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          setQueries(result.results || [])
+        } else {
+          setQueryError(result.error || "Failed to fetch queries")
+        }
+      } else {
+        setQueryError("Failed to fetch queries")
+      }
+    } catch (err) {
+      setQueryError("Network error while fetching queries")
+    } finally {
+      setQueryLoading(false)
+    }
+  }
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/admin/notification-settings/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success && result.data) {
+          setNotifications(prev => ({
+            ...prev,
+            ...result.data
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  }
 
   const fetchProfileData = async () => {
     try {
@@ -178,38 +244,6 @@ export default function AdminSettingsPage() {
           setError("Failed to update profile")
         }
       }
-
-      if (section === "security" || section === "all") {
-        // Handle password change if needed
-        if (currentPassword && newPassword) {
-          const passwordResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/change-password/`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              old_password: currentPassword,
-              new_password: newPassword
-            })
-          })
-          
-          if (passwordResponse.ok) {
-            const result = await passwordResponse.json()
-            if (result.success) {
-              setSuccess("Password changed successfully!")
-              // Clear password fields
-              setCurrentPassword("")
-              setNewPassword("")
-              setConfirmPassword("")
-            } else {
-              setError(result.error || "Failed to change password")
-            }
-          } else {
-            setError("Failed to change password")
-          }
-        }
-      }
       
       if (section === "system" || section === "all") {
         const systemResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/admin/system-settings/`, {
@@ -230,6 +264,28 @@ export default function AdminSettingsPage() {
           }
         } else {
           setError("Failed to update system settings")
+        }
+      }
+
+      if (section === "notifications" || section === "all") {
+        const notificationsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/admin/notification-settings/`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(notifications)
+        })
+        
+        if (notificationsResponse.ok) {
+          const result = await notificationsResponse.json()
+          if (result.success) {
+            setSuccess("Notification preferences updated successfully!")
+          } else {
+            setError(result.error || "Failed to update notification preferences")
+          }
+        } else {
+          setError("Failed to update notification preferences")
         }
       }
       
@@ -313,7 +369,7 @@ export default function AdminSettingsPage() {
                 {/* Avatar */}
                 <div className="flex items-center gap-4 mb-6">
                   <div className="relative">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1e40af] to-[#3b82f6] flex items-center justify-center text-white font-bold text-2xl">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1e40af] to-[hsl(var(--sidebar-primary))] flex items-center justify-center text-white font-bold text-2xl">
                       {profile.name ? profile.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : "AD"}
                     </div>
                     <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-[#1e40af] rounded-full flex items-center justify-center border-2 border-white hover:bg-[#1e3a8a] transition-colors">
@@ -411,110 +467,93 @@ export default function AdminSettingsPage() {
             </>
           )}
 
-          {/* SECURITY TAB */}
-          {activeTab === "security" && (
+          {/* QUERY TAB */}
+          {activeTab === "query" && (
             <>
               <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Change Password</h2>
-                <div className="space-y-4 max-w-md">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Current Password</label>
-                    <div className="flex items-center gap-2 border border-[#e2e8f0] rounded-lg px-3 py-2.5 bg-[#f8fafc]">
-                      <Lock className="w-4 h-4 text-slate-400" />
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Enter current password"
-                        className="bg-transparent text-sm outline-none w-full text-slate-700 placeholder:text-slate-400"
-                      />
-                      <button onClick={() => setShowPassword(!showPassword)} className="p-1 hover:bg-slate-100 rounded">
-                        {showPassword ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">New Password</label>
-                    <div className="flex items-center gap-2 border border-[#e2e8f0] rounded-lg px-3 py-2.5 bg-[#f8fafc]">
-                      <Lock className="w-4 h-4 text-slate-400" />
-                      <input
-                        type={showNewPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password"
-                        className="bg-transparent text-sm outline-none w-full text-slate-700 placeholder:text-slate-400"
-                      />
-                      <button onClick={() => setShowNewPassword(!showNewPassword)} className="p-1 hover:bg-slate-100 rounded">
-                        {showNewPassword ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1.5">Confirm New Password</label>
-                    <div className="flex items-center gap-2 border border-[#e2e8f0] rounded-lg px-3 py-2.5 bg-[#f8fafc]">
-                      <Lock className="w-4 h-4 text-slate-400" />
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                        className="bg-transparent text-sm outline-none w-full text-slate-700 placeholder:text-slate-400"
-                      />
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#e2e8f0]">
+                  <h2 className="text-base font-semibold text-slate-800">User & Department Queries</h2>
                   <button 
-                    onClick={() => handleSave("security")}
-                    disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-                    className="px-4 py-2 bg-[#1e40af] text-white text-sm font-medium rounded-lg hover:bg-[#1e3a8a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={fetchQueries}
+                    disabled={queryLoading}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-sidebar-primary text-sidebar-primary-foreground text-sm font-medium rounded-lg hover:bg-sidebar-primary/90 transition-colors disabled:opacity-50"
                   >
-                    {loading ? "Updating..." : "Update Password"}
+                    <RefreshCw className={`w-4 h-4 ${queryLoading ? 'animate-spin' : ''}`} />
+                    Refresh
                   </button>
                 </div>
-              </div>
 
-              <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Login Sessions</h2>
-                <div className="space-y-3">
-                  {[
-                    { device: "Chrome on Windows", location: "Ahmedabad, Gujarat", time: "Active now", current: true, ip: "192.168.1.1" },
-                    { device: "Firefox on Windows", location: "Surat, Gujarat", time: "2 hours ago", current: false, ip: "192.168.1.2" },
-                    { device: "Safari on iPhone", location: "Mumbai, Maharashtra", time: "1 day ago", current: false, ip: "192.168.1.3" },
-                  ].map((session, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-[#f8fafc] rounded-lg border border-[#e2e8f0]">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${session.current ? "bg-green-500" : "bg-slate-300"}`} />
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">{session.device}</p>
-                          <p className="text-xs text-slate-500">{session.location} · {session.time} · {session.ip}</p>
+                {queryLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-6 h-6 text-sidebar-primary animate-spin mr-2" />
+                    <span className="text-sm text-slate-600">Loading queries...</span>
+                  </div>
+                ) : queryError ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                      <p className="text-sm text-red-600 mb-2">{queryError}</p>
+                      <button 
+                        onClick={fetchQueries}
+                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ) : queries.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-sm text-slate-500">No queries found</p>
+                      <p className="text-xs text-slate-400 mt-1">Queries from users and departments will appear here</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {queries.map((query: any, index: number) => (
+                      <div key={query.id || index} className="border border-[#e2e8f0] rounded-lg p-4 bg-[#f8fafc] hover:bg-slate-50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                query.subject === 'general' ? 'bg-blue-100 text-blue-700' :
+                                query.subject === 'complaint' ? 'bg-red-100 text-red-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {query.subject?.charAt(0).toUpperCase() + query.subject?.slice(1) || 'General'}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                Query #{query.id || index + 1}
+                              </span>
+                            </div>
+                            <h3 className="text-sm font-semibold text-slate-800 mb-1">{query.full_name}</h3>
+                            <p className="text-xs text-slate-600 mb-2">{query.email}</p>
+                            <p className="text-sm text-slate-700 mb-3 leading-relaxed">{query.message}</p>
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                <span>{new Date().toLocaleDateString()}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                <span>{query.email}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" title="Reply">
+                              <Mail className="w-4 h-4" />
+                            </button>
+                            <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      {!session.current && (
-                        <button className="text-xs text-red-500 hover:text-red-700 font-medium">Revoke</button>
-                      )}
-                      {session.current && (
-                        <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">Current</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Two-Factor Authentication</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-[#f8fafc] rounded-lg border border-[#e2e8f0]">
-                    <div className="flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-slate-400" />
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">Enable 2FA</p>
-                        <p className="text-xs text-slate-500">Add an extra layer of security to your account</p>
-                      </div>
-                    </div>
-                    <button className="px-3 py-1.5 bg-[#1e40af] text-white text-xs font-medium rounded-lg hover:bg-[#1e3a8a] transition-colors">
-                      Enable
-                    </button>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}
@@ -672,126 +711,7 @@ export default function AdminSettingsPage() {
             </>
           )}
 
-          {/* Additional tabs (users, departments, notifications, logs, backup) removed to keep this page aligned with existing backend APIs */}
-
-          {activeTab === "system" && (
-            <>
-              <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-5">
-                <h2 className="text-base font-semibold text-slate-800 mb-4 pb-3 border-b border-[#e2e8f0]">Notification Preferences</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Email Notifications for New Complaints</p>
-                      <p className="text-xs text-slate-500">Receive email when a new complaint is submitted</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, emailComplaints: !notifications.emailComplaints })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.emailComplaints ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.emailComplaints ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Email Notifications for Resolutions</p>
-                      <p className="text-xs text-slate-500">Receive email when a complaint is resolved</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, emailResolutions: !notifications.emailResolutions })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.emailResolutions ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.emailResolutions ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">SMS Alerts</p>
-                      <p className="text-xs text-slate-500">Receive SMS alerts for critical issues</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, smsAlerts: !notifications.smsAlerts })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.smsAlerts ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.smsAlerts ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Push Notifications</p>
-                      <p className="text-xs text-slate-500">Receive push notifications in browser</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, pushNotifications: !notifications.pushNotifications })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.pushNotifications ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.pushNotifications ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Weekly Reports</p>
-                      <p className="text-xs text-slate-500">Receive weekly summary reports</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, weeklyReports: !notifications.weeklyReports })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.weeklyReports ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.weeklyReports ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">Critical Alerts</p>
-                      <p className="text-xs text-slate-500">Immediate alerts for critical system issues</p>
-                    </div>
-                    <button
-                      onClick={() => setNotifications({ ...notifications, criticalAlerts: !notifications.criticalAlerts })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        notifications.criticalAlerts ? 'bg-blue-500' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          notifications.criticalAlerts ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
+   
           {/* ACTIVITY LOGS TAB */}
           {activeTab === "logs" && (
             <>

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, Filter, MoreVertical, Edit, Eye, UserPlus, Shield, AlertCircle, Users, TrendingUp, Activity, RefreshCw, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import api, { apiGet } from '@/lib/api'
 import StatsCard from '@/components/ui/stats-card'
 
 interface User {
@@ -74,7 +75,7 @@ export default function AdminUsersPage() {
     setCurrentPage(1)
   }, [searchTerm, roleFilter, statusFilter])
 
-  const fetchMonthlyRegistrations = async () => {
+  const fetchMonthlyRegistrations = async () => async () => {
     try {
       const token = localStorage.getItem('access_token')
       const headers: Record<string, string> = {
@@ -86,7 +87,7 @@ export default function AdminUsersPage() {
       }
 
       // Try to fetch from the monthly registrations API endpoint
-      const response = await fetch(`${API_BASE}/api/admin/monthly-registrations/`, { headers })
+      const response = await fetch(`${API_BASE}/api/user-registrations/monthly/`, { headers })
       
       if (response.ok) {
         const responseData = await response.json()
@@ -109,8 +110,8 @@ export default function AdminUsersPage() {
         
         // Transform data to ensure proper format
         return monthlyData.map((item: any) => ({
-          month: item.month || item.name || 'Unknown',
-          users: parseInt(item.users || item.count || item.registrations || 0)
+          month: item.month || item.name,
+          users: parseInt(item.users || item.count || item.registrations)
         }))
       }
     } catch (error) {
@@ -183,30 +184,22 @@ export default function AdminUsersPage() {
         console.log('Monthly registrations calculated:', monthlyRegistrations)
 
         // Update analytics data with calculated values
+        const roleDist = calculateRoleDistribution(processedUsers)
         setAnalyticsData({
           totalUsers: processedUsers.length,
-          activeUsers: processedUsers.filter(u => u.is_active).length,
-          inactiveUsers: processedUsers.filter(u => !u.is_active).length,
-          totalComplaints: processedUsers.reduce((sum, u) => sum + (u.complaint_count || 0), 0),
-          roleDistribution: calculateRoleDistribution(processedUsers),
+          activeUsers: processedUsers.filter((u: User) => u.is_active).length,
+          inactiveUsers: processedUsers.filter((u: User) => !u.is_active).length,
+          totalComplaints: processedUsers.reduce((sum: number, u: User) => sum + (u.complaint_count || 0), 0),
+          roleDistribution: roleDist,
           monthlyRegistrations: monthlyRegistrations
         })
       } else {
         console.error('Failed to fetch users:', response.status)
-        // Set fallback data
-        setAnalyticsData({
-          totalUsers: 0,
-          activeUsers: 0,
-          inactiveUsers: 0,
-          totalComplaints: 0,
-          roleDistribution: [],
-          monthlyRegistrations: []
-        })
         setUsers([])
       }
     } catch (error) {
       console.error('Error fetching user analytics:', error)
-      // Set fallback data
+      setUsers([])
       setAnalyticsData({
         totalUsers: 0,
         activeUsers: 0,
@@ -256,7 +249,7 @@ export default function AdminUsersPage() {
     // Calculate role distribution from users
     const roleCounts: Record<string, number> = {}
     
-    users.forEach(user => {
+    users.forEach((user: User) => {
       const role = user.role || 'Unknown'
       roleCounts[role] = (roleCounts[role] || 0) + 1
     })
@@ -273,7 +266,19 @@ export default function AdminUsersPage() {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
     
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+    // Normalize role filter to accept backend role variants like 'Admin-User', 'Civic-User', 'Department-User'
+    const roleMap: Record<string, string[]> = {
+      admin: ['admin', 'admin-user', 'admin-user'],
+      officer: ['officer', 'department-user', 'department-user'],
+      user: ['user', 'civic-user', 'civic-user']
+    }
+
+    const matchesRole = (() => {
+      if (roleFilter === 'all') return true
+      const userRole = (user.role || '').toString().toLowerCase()
+      const mapped = roleMap[roleFilter] || [roleFilter]
+      return mapped.some(r => userRole.includes(r))
+    })()
     const matchesStatus = statusFilter === 'all' || 
                         (statusFilter === 'active' && user.is_active) ||
                         (statusFilter === 'inactive' && !user.is_active)
@@ -361,9 +366,23 @@ export default function AdminUsersPage() {
         setUsers(users.filter(user => user.id !== userId))
         alert('User deleted successfully!')
       } else {
-        const errorData = await response.json()
-        console.error('Failed to delete user:', errorData)
-        alert('Failed to delete user. Please check the console for details.')
+        let errorMessage = 'Failed to delete user'
+        try {
+          const errorData = await response.json()
+          console.error('Failed to delete user:', errorData)
+          
+          if (errorData.error) {
+            errorMessage = errorData.error
+          } else if (errorData.message) {
+            errorMessage = errorData.message
+          } else if (Object.keys(errorData).length > 0) {
+            errorMessage = JSON.stringify(errorData)
+          }
+        } catch {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        
+        alert(`Failed to delete user: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -404,9 +423,27 @@ export default function AdminUsersPage() {
         // Show success message
         alert('User updated successfully!')
       } else {
-        const errorData = await response.json()
-        console.error('Failed to update user:', errorData)
-        alert('Failed to update user. Please check the console for details.')
+        let errorMessage = 'Failed to update user'
+        try {
+          const errorData = await response.json()
+          console.error('Failed to update user:', errorData)
+          
+          // Extract error message from different possible formats
+          if (errorData.error) {
+            errorMessage = errorData.error
+          } else if (errorData.message) {
+            errorMessage = errorData.message
+          } else if (errorData.errors) {
+            errorMessage = Object.values(errorData.errors).flat().join(', ')
+          } else if (Object.keys(errorData).length > 0) {
+            errorMessage = JSON.stringify(errorData)
+          }
+        } catch {
+          // If response is not valid JSON, use status text
+          errorMessage = `Server error: ${response.status} ${response.statusText}`
+        }
+        
+        alert(`Failed to update user: ${errorMessage}`)
       }
     } catch (error) {
       console.error('Error updating user:', error)
@@ -426,10 +463,10 @@ export default function AdminUsersPage() {
         return 'bg-purple-100 text-purple-800 border-purple-200'
       case 'officer':
         return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'civic user':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200'
-      default:
+      case 'user':
         return 'bg-gray-100 text-gray-800 border-gray-200'
+      default:
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
     }
   }
 
@@ -453,7 +490,7 @@ export default function AdminUsersPage() {
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary/90 transition-colors"
             >
               <UserPlus className="w-4 h-4" />
               Add User
@@ -484,9 +521,9 @@ export default function AdminUsersPage() {
           title="Inactive Users"
           value={analyticsData.inactiveUsers}
           icon={<AlertCircle className="w-6 h-6" />}
-          color="text-blue-600"
-          bgColor="bg-blue-100"
-          borderColor="border-t-[#3b82f6]"
+          color="text-sidebar-primary"
+          bgColor="bg-sidebar-primary/10"
+          borderColor="border-t-[#1e40af]"
         />
         
         <StatsCard
@@ -507,7 +544,6 @@ export default function AdminUsersPage() {
             <h3 className="text-lg font-semibold text-gray-900">Monthly User Registrations</h3>
             <p className="text-sm text-gray-500">New user registrations per month</p>
           </div>
-          {console.log('Monthly registrations data:', analyticsData.monthlyRegistrations)}
           {analyticsData.monthlyRegistrations && analyticsData.monthlyRegistrations.length > 0 ? (
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -533,7 +569,7 @@ export default function AdminUsersPage() {
                   />
                   <Bar 
                     dataKey="users" 
-                    fill="#3b82f6" 
+                    fill="hsl(var(--sidebar-primary))" 
                     radius={[8, 8, 0, 0]}
                   />
                 </BarChart>
@@ -558,7 +594,6 @@ export default function AdminUsersPage() {
             <h3 className="text-lg font-semibold text-gray-900">User Role Distribution</h3>
             <p className="text-sm text-gray-500">Distribution of users by role</p>
           </div>
-          {console.log('Chart data:', analyticsData.roleDistribution)}
           {analyticsData.roleDistribution.length > 0 ? (
             <>
               <div className="h-64">
@@ -620,7 +655,7 @@ export default function AdminUsersPage() {
                 placeholder="Search users by name, email, or username..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sidebar-primary focus:border-sidebar-primary"
               />
             </div>
           </div>
@@ -716,7 +751,7 @@ export default function AdminUsersPage() {
                             setEditingUser(user)
                             setShowEditModal(true)
                           }}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-sidebar-primary hover:text-sidebar-primary/900"
                           title="Edit User"
                         >
                           <Edit className="w-4 h-4" />
@@ -770,7 +805,7 @@ export default function AdminUsersPage() {
                         onClick={() => setCurrentPage(pageNum)}
                         className={`px-3 py-1 text-sm border rounded-lg ${
                           currentPage === pageNum
-                            ? 'bg-blue-600 text-white border-blue-600'
+                            ? 'bg-sidebar-primary text-white border-blue-600'
                             : 'border-gray-300 hover:bg-gray-50'
                         }`}
                       >
@@ -869,7 +904,7 @@ export default function AdminUsersPage() {
               </button>
               <button
                 onClick={handleCreateUser}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-blue-700"
               >
                 Create User
               </button>
@@ -955,7 +990,7 @@ export default function AdminUsersPage() {
               </button>
               <button
                 onClick={handleUpdateUser}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-blue-700"
               >
                 Update User
               </button>

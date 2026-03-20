@@ -14,7 +14,7 @@ import RequireAuth from '@/components/auth/RequireAuth'
 interface Complaint {
   id: string
   title: string
-  Category: string
+  category_name: string
   Description: string
   location_address: string
   location_District: string
@@ -64,7 +64,16 @@ export default function MyComplaintsPage() {
           headers['Authorization'] = `Bearer ${token}`
         }
         
-        const res = await fetch(`${API_BASE}/api/getcomplaint/`, {
+        // Build query params from active filters/search
+        const params = new URLSearchParams()
+        if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus)
+        if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter)
+        if (priorityFilter && priorityFilter !== 'all') params.append('priority', priorityFilter)
+        if (searchTerm && searchTerm.trim() !== '') params.append('search', searchTerm.trim())
+
+        const url = `${API_BASE}/api/getcomplaint/${params.toString() ? `?${params.toString()}` : ''}`
+
+        const res = await fetch(url, {
           headers,
           mode: 'cors',
         })
@@ -100,9 +109,10 @@ export default function MyComplaintsPage() {
         setComplaints([])
       }
     }
-  
+
     fetchComplaints()
-  }, [API_BASE])
+  // Re-run fetch when any filter/search changes so server-side filtering can be applied
+  }, [API_BASE, filterStatus, categoryFilter, priorityFilter, searchTerm])
   return (
     <RequireAuth>
       <main className="min-h-screen bg-background">

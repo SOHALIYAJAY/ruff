@@ -196,12 +196,19 @@ export default function StatisticsCards() {
     )
   }
 
+  const normalizeBorderColor = (b: string) => {
+    if (!b) return ''
+    if (b.startsWith('border-t-') || b.startsWith('border-t[') || b.startsWith('border-t')) return `border-t-4 ${b}`
+    if (b.startsWith('border-')) return `border-t-4 border-t-${b.slice('border-'.length)}`
+    return `border-t-4 border-t-${b}`
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {statCards.map((card, index) => (
         <div
           key={card.label}
-          className={`bg-white rounded-xl border ${card.borderColor} p-6 hover:shadow-lg transition-all duration-300 hover:scale-105`}
+          className={`bg-white rounded-xl border border-gray-200 ${normalizeBorderColor(card.borderColor)} p-6 hover:shadow-lg transition-all duration-300 hover:scale-105 h-full`}
         >
           <div className={`${card.bgColor} ${card.textColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
             {card.icon}

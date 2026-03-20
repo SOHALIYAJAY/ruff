@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Menu,
   X,
+  FileText,
+  Edit,
 } from 'lucide-react'
 
 export default function DashboardSidebar() {
@@ -61,14 +63,43 @@ export default function DashboardSidebar() {
       case 'Department-User':
         return [
           {
-            label: 'Department',
+            label: 'Dashboard',
             icon: <LayoutDashboard className="w-5 h-5" />,
             href: '/department',
+          },
+          {
+            label: 'Officer Portal',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/officer',
           },
           {
             label: 'Profile',
             icon: <User className="w-5 h-5" />,
             href: '/department/profile',
+          },
+        ]
+      
+      case 'Officer':
+        return [
+          {
+            label: 'Dashboard',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/officer',
+          },
+          {
+            label: 'All Complaints',
+            icon: <FileText className="w-5 h-5" />,
+            href: '/officer/complaints',
+          },
+          {
+            label: 'Status Change',
+            icon: <Edit className="w-5 h-5" />,
+            href: '/officer/update-status',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/officer/profile',
           },
         ]
       

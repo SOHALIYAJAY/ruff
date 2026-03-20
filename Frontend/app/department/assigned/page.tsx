@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { ChevronRight, Home } from "lucide-react"
 import Link from "next/link"
 import AssignedComplaintsStats from "@/components/department/assigned-complaints-stats"
@@ -12,6 +12,7 @@ import AssignedAnalyticsSidebar from "@/components/department/assigned-analytics
 export default function AssignedComplaintsPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
+  const tableRef = useRef<{ refreshComplaints: () => void }>(null)
 
   const handleAssign = (complaint: Complaint) => {
     setSelectedComplaint(complaint)
@@ -21,6 +22,13 @@ export default function AssignedComplaintsPage() {
   const handleViewDetails = (complaint: Complaint) => {
     console.log('Viewing details for complaint:', complaint.id)
     // Navigation is handled by ViewDetailsButton component
+  }
+
+  const handleAssignmentComplete = () => {
+    // Refresh the table data after assignment
+    if (tableRef.current) {
+      tableRef.current.refreshComplaints()
+    }
   }
 
   return (
@@ -46,7 +54,13 @@ export default function AssignedComplaintsPage() {
 
       {/* Main Content: Table Only */}
       <div>
-        <AssignedComplaintsTable onAssign={handleAssign} onViewDetails={handleViewDetails} initialView="category" />
+        <AssignedComplaintsTable 
+          ref={tableRef}
+          onAssign={handleAssign} 
+          onViewDetails={handleViewDetails} 
+          initialView="category"
+          onAssignmentComplete={handleAssignmentComplete}
+        />
       </div>
 
       {/* Modals */}
@@ -54,6 +68,7 @@ export default function AssignedComplaintsPage() {
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
         complaint={selectedComplaint ? { id: selectedComplaint.id.toString(), title: selectedComplaint.title, officer: selectedComplaint.officer_id?.toString() || '' } : null}
+        onAssignmentComplete={handleAssignmentComplete}
       />
     </div>
   )

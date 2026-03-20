@@ -1,13 +1,47 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 import traceback
+import math
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, CreateAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Count
+from rest_framework.pagination import PageNumberPagination
+
+class StandardResultsSetPagination(PageNumberPagination):
+    # Default items per page
+    page_size = 6
+    # Allow clients to override using `limit` query param
+    page_size_query_param = 'limit'
+    max_page_size = 100
+
+    def get_paginated_response(self, data):
+        # Determine current page and page size to include helpful range info
+        try:
+            page_number = self.page.number
+        except Exception:
+            page_number = 1
+
+        # Try to get page size from request or fallback to paginator value
+        page_size = self.get_page_size(self.request) or getattr(self.page.paginator, 'per_page', self.page_size)
+        total = self.page.paginator.count
+        start = (page_number - 1) * page_size + 1 if total > 0 else 0
+        end = min(page_number * page_size, total)
+
+        return Response({
+            'count': total,
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'page': page_number,
+            'page_size': page_size,
+            'start': start,
+            'end': end,
+            'results': data
+        })
+from django.db.models import Count, Q
+from django.db.models.functions import ExtractMonth, ExtractYear
 from complaints.models import Complaint
 from Categories.models import Category
 from accounts.models import CustomUser
@@ -16,10 +50,9 @@ from departments.serializers import deptSerializer, OfficerSerializer
 from Categories.serializers import ComplaintCategorySerializer
 from complaints.serializers import ComplaintSerializer,ComplaintAssignmentSerializer
 from complaints.models import ComplaintAssignment
-from django.db.models import Count
-from django.db.models.functions import ExtractMonth, ExtractYear
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 
 class getcomplaint(ListAPIView):
@@ -51,7 +84,7 @@ def complaintsinfo(request):
     total_comp = Complaint.objects.filter(user=request.user).count()
     resolved_comp = Complaint.objects.filter(status='resolved' , user=request.user).count()
     pending_comp = Complaint.objects.filter(status='Pending' , user=request.user).count()
-    inprogress_comp = Complaint.objects.filter(status='iin-progress' , user=request.user).count()
+    inprogress_comp = Complaint.objects.filter(status='in-progress' , user=request.user).count()
     
     return Response({
         'total_comp': total_comp,
@@ -95,7 +128,7 @@ class compinfo(APIView):
         total_comp = Complaint.objects.filter(user=self.request.user).count()
         resolved_comp = Complaint.objects.filter(status='resolved', user=self.request.user).count()
         pending_comp = Complaint.objects.filter(status='Pending',user=self.request.user).count()
-        In_progress_comp = Complaint.objects.filter(status='iin-progress',user=self.request.user).count()
+        In_progress_comp = Complaint.objects.filter(status='in-progress',user=self.request.user).count()
         total_categories = Category.objects.all().count()
         return Response({
             'total_complaints': total_comp,
@@ -114,7 +147,7 @@ class complaintinfo(APIView):
             total_comp = Complaint.objects.all().count()
             resolved_comp = Complaint.objects.filter(status='resolved').count()
             pending_comp = Complaint.objects.filter(status='Pending').count()
-            in_progress_comp = Complaint.objects.filter(status='iin-progress').count()
+            in_progress_comp = Complaint.objects.filter(status='in-progress').count()
             total_categories = Category.objects.all().count()
             total_users = CustomUser.objects.all().count()
             total_departments = Department.objects.all().count()
@@ -186,14 +219,14 @@ class UserDetail(APIView):
 class ComplaintStatusStats(APIView):
     def get(self, request):
         try:
-            complaints = Complaint.objects.fitler(user=self.request.user)
-            
+            complaints = Complaint.objects.filter(user=request.user)
+
             # Count complaints by status
             status_counts = {
-                'open': complaints.filter(status='Pending',user=self.request.user).count(),
-                'in_progress': complaints.filter(status='iin-progress',user=self.request.user).count(),
-                'resolved': complaints.filter(status='resolved',user=self.request.user).count(),
-                'pending': complaints.filter(status='Pending',user=self.request.user).count()
+                'open': complaints.filter(status='Pending').count(),
+                'in_progress': complaints.filter(status='in-progress').count(),
+                'resolved': complaints.filter(status='resolved').count(),
+                'pending': complaints.filter(status='Pending').count()
             }
             
             return Response(status_counts)
@@ -250,10 +283,30 @@ class DepartmentDashboardStats(APIView):
         try:
             complaints = Complaint.objects.all()
             
+            # Get filter parameters from query string
+            search_query = request.GET.get('search', '')
+            status_filter = request.GET.get('status', '')
+            priority_filter = request.GET.get('priority', '')
+            date_range_filter = request.GET.get('date_range', '')
+            
+            # Apply filters to complaints queryset
+            if search_query:
+                complaints = complaints.filter(
+                    Q(title__icontains=search_query) |
+                    Q(Description__icontains=search_query) |
+                    Q(location_address__icontains=search_query)
+                )
+            
+            if status_filter and status_filter != 'all':
+                complaints = complaints.filter(status=status_filter)
+            
+            if priority_filter and priority_filter != 'all':
+                complaints = complaints.filter(priority_level=priority_filter)
+            
             # Calculate statistics
             total = complaints.count()
             pending = complaints.filter(status='Pending').count()
-            in_progress = complaints.filter(status='iin-progress').count()
+            in_progress = complaints.filter(status='in-progress').count()
             resolved = complaints.filter(status='resolved').count()
             
             # Calculate real performance metrics
@@ -294,11 +347,11 @@ class DepartmentDashboardStats(APIView):
             recent_complaints = complaints.order_by('-current_time')[:3]
             for comp in recent_complaints:
                 recent_activity.append({
-                    'id': f'complaint_{comp.id}',
-                    'type': 'complaint',
-                    'description': f'New complaint: {comp.title[:50]}...',
-                    'time': self._get_time_ago(comp.current_time) if comp.current_time else 'Unknown',
-                    'officer': None
+                    'id': f'comp_{comp.id}',
+                    'type': 'complaint_assigned',
+                    'description': f'Complaint #{comp.id} assigned to officer',
+                    'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
+                    'officer': comp.officer_id.name if comp.officer_id else 'Unassigned'
                 })
             
             # Get recent resolutions as activity
@@ -316,7 +369,7 @@ class DepartmentDashboardStats(APIView):
                     'id': f'resolution_{comp.id}',
                     'type': 'resolution',
                     'description': f'Complaint #{comp.id} resolved',
-                    'time': self._get_time_ago(comp.current_time) if comp.current_time else 'Unknown',
+                    'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else 'Unknown',
                     'officer': officer_name
                 })
             
@@ -415,7 +468,7 @@ class officerprofile(APIView):
             resolved_comp = Complaint.objects.filter(officer_id=officer_id, status='resolved').count()
             total_comp = Complaint.objects.filter(officer_id=officer_id).count()
             pending_comp = Complaint.objects.filter(officer_id=officer_id, status='Pending').count()
-            in_progress_comp = Complaint.objects.filter(officer_id=officer_id, status='iin-progress').count()
+            in_progress_comp = Complaint.objects.filter(officer_id=officer_id, status='in-progress').count()
 
             assigned_complaints = Complaint.objects.filter(officer_id=officer_id)
             complaints_serializer = ComplaintSerializer(assigned_complaints, many=True)
@@ -461,7 +514,7 @@ class adminallcomplaintcart(APIView):
         total_comp = Complaint.objects.all().count()
         Pending_comp = Complaint.objects.filter(status='Pending').count()
         resolved_comp = Complaint.objects.filter(status='resolved').count()
-        inprogress_comp = Complaint.objects.filter(status='iin-progress').count()
+        inprogress_comp = Complaint.objects.filter(status='in-progress').count()
         rejected_comp = Complaint.objects.filter(status='rejected').count()
         sla_compliance = (resolved_comp / total_comp * 100) if total_comp > 0 else 0
 
@@ -476,8 +529,79 @@ class adminallcomplaintcart(APIView):
 
 
 class adimncomplaints(ListAPIView):
-    queryset = Complaint.objects.all()
+    queryset = Complaint.objects.all().order_by('-current_time')
     serializer_class = ComplaintSerializer
+    pagination_class = StandardResultsSetPagination
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Apply filters if provided
+        department = self.request.query_params.get('department')
+        status = self.request.query_params.get('status')
+        priority = self.request.query_params.get('priority')
+        date_range = self.request.query_params.get('date_range')
+        search = self.request.query_params.get('search')
+        district = self.request.query_params.get('district')
+        assigned = self.request.query_params.get('assigned')
+        
+        if department and department != 'all':
+            # frontend may send category id or name; handle both
+            try:
+                dept_id = int(department)
+                queryset = queryset.filter(Category_id=dept_id)
+            except Exception:
+                queryset = queryset.filter(Category__name=department)
+        if status and status != 'all':
+            # Normalize common status variants
+            status_map = {
+                'in-progress': 'in-progress',
+                'in_progress': 'in-progress',
+                'inprogress': 'in-progress'
+            }
+            normalized = status_map.get(status, status)
+            queryset = queryset.filter(status=normalized)
+        if priority and priority != 'all':
+            queryset = queryset.filter(priority_level=priority)
+        if date_range and date_range != 'all':
+            # Apply date range filtering logic using current_time field
+            from datetime import datetime, timedelta
+            from django.utils import timezone
+            now = timezone.now()
+            start = None
+            if date_range == 'today':
+                start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'week':
+                start = now - timedelta(days=7)
+            elif date_range == 'month':
+                start = now - timedelta(days=30)
+            elif date_range == 'quarter':
+                start = now - timedelta(days=90)
+            elif date_range == 'year':
+                start = now - timedelta(days=365)
+
+            if start:
+                queryset = queryset.filter(current_time__gte=start, current_time__lte=now)
+        if district:
+            queryset = queryset.filter(location_District__iexact=district)
+        if assigned:
+            if assigned == 'assigned':
+                queryset = queryset.exclude(officer_id=None)
+            elif assigned == 'unassigned':
+                queryset = queryset.filter(officer_id=None)
+        if search:
+            # If search is numeric, try matching id; otherwise search multiple text fields
+            if str(search).isdigit():
+                queryset = queryset.filter(id=int(search))
+            else:
+                queryset = queryset.filter(
+                    Q(title__icontains=search) |
+                    Q(Description__icontains=search) |
+                    Q(location_address__icontains=search) |
+                    Q(location_District__icontains=search)
+                )
+            
+        return queryset
 
 
 class ComplaintDelete(APIView):
@@ -594,8 +718,8 @@ class admindashboardcard(APIView):
             total_complaints = Complaint.objects.all().count()
             resolved_complaints = Complaint.objects.filter(status='resolved').count()
             pending_complaints = Complaint.objects.filter(status='Pending').count()
-            inprogress_complaints = Complaint.objects.filter(status='iin-progress').count()
-            rejected_complaints = Complaint.objects.filter(status='rejected').count()
+            inprogress_complaints = Complaint.objects.filter(status='in-progress').count()
+            rejected_complaints = 0  # Default to 0 since 'rejected' is not in CHOICE_STATUS
             
             return Response({
                 'total_complaints': total_complaints,
@@ -610,6 +734,8 @@ class admindashboardcard(APIView):
                 'rejected_comp': rejected_complaints
             })
         except Exception as e:
+            print(f"Error in admindashboardcard: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
             return Response({
                 'error': str(e),
                 'message': 'Failed to fetch dashboard statistics'
@@ -623,8 +749,12 @@ class UserRoleDistribution(APIView):
         try:
             # Get user role distribution using correct role names from CustomUser model
             regular_users = CustomUser.objects.filter(User_Role='Civic-User').count()
-            officers = CustomUser.objects.filter(User_Role='Department-User').count()
+            officers = CustomUser.objects.filter(User_Role='Officer').count()
             admins = CustomUser.objects.filter(User_Role='Admin-User').count()
+            
+            # Debug logging
+            print(f"UserRoleDistribution - Regular Users: {regular_users}, Officers: {officers}, Admins: {admins}")
+            print(f"Total users in database: {CustomUser.objects.count()}")
             
             return Response({
                 'regular_users': regular_users,
@@ -632,6 +762,7 @@ class UserRoleDistribution(APIView):
                 'admins': admins
             })
         except Exception as e:
+            print(f"Error in UserRoleDistribution: {str(e)}")
             return Response({
                 'error': str(e),
                 'message': 'Failed to fetch user role distribution'
@@ -643,33 +774,56 @@ class ComplaintStatusTrends(APIView):
     
     def get(self, request):
         try:
-            # Get monthly complaint trends for the last 6 months
-            from django.db.models import Count
-            from django.utils import timezone
-            from datetime import timedelta
-            
-            # Calculate date ranges
-            end_date = timezone.now()
-            start_date = end_date - timedelta(days=180)
-            
-            # Get monthly complaint counts
+            # Get monthly complaint trends for the last 12 months (rolling window)
+            from datetime import datetime
+
+            now = datetime.now()
+
+            # Prepare month names and result container
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             monthly_data = []
-            for i in range(6):
-                month_start = start_date + timedelta(days=30*i)
-                month_end = month_start + timedelta(days=30)
+
+            # Build a list for the last 12 months including previous year months
+            for months_ago in range(11, -1, -1):
+                # compute year and month for months_ago
+                total_months = now.year * 12 + now.month - 1 - months_ago
+                y = total_months // 12
+                m = (total_months % 12) + 1
+
+                month_label = f"{month_names[m-1]} {y}"
                 
-                month_name = month_start.strftime('%b')
-                total_count = Complaint.objects.filter(
-                    created_at__gte=month_start,
-                    created_at__lt=month_end
-                ).count()
-                
+                # Filter by user for personal dashboard, or all users for admin
+                if request.user.is_staff or request.user.User_Role == 'Admin-User':
+                    # Admin sees system-wide data
+                    total_count = Complaint.objects.filter(
+                        current_time__year=y,
+                        current_time__month=m
+                    ).count()
+                else:
+                    # Regular users see only their own complaints
+                    total_count = Complaint.objects.filter(
+                        user=request.user,
+                        current_time__year=y,
+                        current_time__month=m
+                    ).count()
+
                 monthly_data.append({
-                    'month': month_name,
-                    'complaints': total_count
+                    'month': month_label,
+                    'month_number': m,
+                    'year': y,
+                    'complaints': total_count,
+                    'density': total_count
                 })
-            
-            return Response(monthly_data)
+
+            return Response({
+                'monthly_data': monthly_data,
+                'density_data': monthly_data,
+                'start_month': monthly_data[0]['month_number'] if monthly_data else None,
+                'start_year': monthly_data[0]['year'] if monthly_data else None,
+                'end_month': monthly_data[-1]['month_number'] if monthly_data else None,
+                'end_year': monthly_data[-1]['year'] if monthly_data else None,
+                'total_complaints': sum(item['complaints'] for item in monthly_data)
+            })
         except Exception as e:
             return Response({
                 'error': str(e),
@@ -693,7 +847,7 @@ class CivicUserActivityView(APIView):
             for complaint in user_complaints:
                 activity = {
                     'id': f'complaint_{complaint.id}',
-                    'type': 'submitted' if complaint.status == 'Pending' else 'updated' if complaint.status == 'iin-progress' else 'resolved',
+                    'type': 'submitted' if complaint.status == 'Pending' else 'updated' if complaint.status == 'in-progress' else 'resolved',
                     'title': f'Complaint {complaint.status}',
                     'description': complaint.title or 'No description available',
                     'timestamp': complaint.current_time.isoformat(),
@@ -828,15 +982,51 @@ class ComplaintMonthWise(APIView):
                 'error': 'Authentication required'
             }, status=401)
             
-        month={1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0}
+        from datetime import datetime
+        current_year = datetime.now().year
+        
+        # Initialize all months with 0
+        month_data = {
+            1: {'month': 'Jan', 'count': 0},
+            2: {'month': 'Feb', 'count': 0},
+            3: {'month': 'Mar', 'count': 0},
+            4: {'month': 'Apr', 'count': 0},
+            5: {'month': 'May', 'count': 0},
+            6: {'month': 'Jun', 'count': 0},
+            7: {'month': 'Jul', 'count': 0},
+            8: {'month': 'Aug', 'count': 0},
+            9: {'month': 'Sep', 'count': 0},
+            10: {'month': 'Oct', 'count': 0},
+            11: {'month': 'Nov', 'count': 0},
+            12: {'month': 'Dec', 'count': 0}
+        }
+        
         try:
-            for i in month:
-                month[i]=Complaint.objects.filter(current_time__month=i,user=request.user).count()
-            return Response(month)
+            # Get actual complaint counts for each month
+            for i in range(1, 13):
+                count = Complaint.objects.filter(
+                    current_time__month=i,
+                    current_time__year=current_year,
+                    user=request.user
+                ).count()
+                month_data[i]['count'] = count
+            
+            # Return both formats for compatibility
+            response_data = {
+                'monthly_data': month_data,
+                'simplified': {i: month_data[i]['count'] for i in month_data},
+                'year': current_year
+            }
+            
+            return Response(response_data)
         except Exception as e:
             print(f"Error in ComplaintMonthWise: {e}")
             # Return default values if there's an error
-            return Response({1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0})
+            return Response({
+                'monthly_data': month_data,
+                'simplified': {i: 0 for i in month_data},
+                'year': current_year
+            })
 
 class ComplaintStatus(APIView):
     permission_classes = [IsAuthenticated]
@@ -851,7 +1041,7 @@ class ComplaintStatus(APIView):
                 
             status_counts = {
                 'Pending': Complaint.objects.filter(status='Pending', user=request.user).count(),
-                'In Progress': Complaint.objects.filter(status='iin-progress', user=request.user).count(),
+                'In Progress': Complaint.objects.filter(status='in-progress', user=request.user).count(),
                 'Resolved': Complaint.objects.filter(status='resolved', user=request.user).count(),
                 'Rejected': Complaint.objects.filter(status='rejected', user=request.user).count(),
             }
@@ -971,7 +1161,7 @@ class ComplaintPriorityDistribution(APIView):
             
             # Get complaint distribution by status
             pending_status = Complaint.objects.filter(status='Pending').count()
-            inprogress_status = Complaint.objects.filter(status='iin-progress').count()
+            inprogress_status = Complaint.objects.filter(status='in-progress').count()
             resolved_status = Complaint.objects.filter(status='resolved').count()
             
             # Get monthly complaint trends (last 6 months)
@@ -1022,7 +1212,7 @@ class ComplaintPriorityDistribution(APIView):
 class OfficerAnalytics(APIView):
     def get(self, request):
         try:
-            from departments.models import Officer
+            from departments.models import Officer, Department
             from django.db.models import Count, Q
             
             # Total officers
@@ -1035,33 +1225,34 @@ class OfficerAnalytics(APIView):
             # Officers with active complaints
             officers_with_complaints = Complaint.objects.filter(
                 officer_id__isnull=False,
-                status__in=['Pending', 'iin-progress']
+                status__in=['Pending', 'in-progress']
             ).values('officer_id').distinct().count()
             
-            # Department distribution
+            # Category-wise officer distribution - include ALL categories
             department_stats = {}
-            for officer in Officer.objects.all():
-                # Get complaints assigned to this officer
-                complaint_count = Complaint.objects.filter(
-                    officer_id=officer.officer_id,
-                    status__in=['Pending', 'iin-progress']
+            
+            # Get all categories and count officers assigned to each
+            categories = Category.objects.all()
+            for category in categories:
+                # Count officers who have complaints in this category
+                officer_ids_in_category = Complaint.objects.filter(
+                    Category=category,
+                    officer_id__isnull=False
+                ).values_list('officer_id', flat=True).distinct()
+                
+                officer_count = len(officer_ids_in_category)
+                
+                # Count active complaints in this category
+                active_complaints = Complaint.objects.filter(
+                    Category=category,
+                    status__in=['Pending', 'in-progress']
                 ).count()
                 
-                # Get department from complaints (assuming each officer belongs to a department)
-                complaints = Complaint.objects.filter(officer_id=officer.officer_id)
-                if complaints.exists():
-                    # Get department from the first complaint's category
-                    dept = complaints.first().Category
-                    if dept:
-           
-                        dept_name = dept.name
-                        if dept_name not in department_stats:
-                            department_stats[dept_name] = {
-                                'officers': 0,
-                                'active_complaints': 0
-                            }
-                        department_stats[dept_name]['officers'] += 1
-                        department_stats[dept_name]['active_complaints'] += complaint_count
+                # Include ALL categories, even with 0 officers
+                department_stats[category.name] = {
+                    'officers': officer_count,
+                    'active_complaints': active_complaints
+                }
             
             # Workload distribution
             workload_data = []
@@ -1071,7 +1262,7 @@ class OfficerAnalytics(APIView):
                 # Count only active complaints
                 active_complaints = Complaint.objects.filter(
                     officer_id=officer.officer_id,
-                    status__in=['Pending', 'iin-progress']
+                    status__in=['Pending', 'in-progress']
                 ).count()
                 
                 workload_data.append({
@@ -1142,17 +1333,31 @@ class ComplaintInDetail(APIView):
                     except (ValueError, AttributeError):
                         image_url = None
                 
-                # Handle officer_id properly - get the officer ID, not the object
+                # Handle officer information: officer_id is a ForeignKey to Officer model
                 officer_id = None
+                assigned_officer = None
                 if comp.officer_id:
                     try:
-                        # If officer_id is an Officer object, get its ID
-                        if hasattr(comp.officer_id, 'officer_id'):
-                            officer_id = comp.officer_id.officer_id
-                        else:
-                            officer_id = comp.officer_id
-                    except (ValueError, AttributeError):
+                        # comp.officer_id is already an Officer object due to ForeignKey
+                        officer_obj = comp.officer_id
+                        print(f"Officer object found: {officer_obj}")
+                        print(f"Officer name: {officer_obj.name}")
+                        print(f"Officer email: {officer_obj.email}")
+                        print(f"Officer phone: {officer_obj.phone}")
+                        
+                        assigned_officer = {
+                            'id': officer_obj.officer_id,
+                            'name': officer_obj.name,
+                            'email': officer_obj.email,
+                            'phone': officer_obj.phone,
+                            'is_available': officer_obj.is_available
+                        }
+                        officer_id = officer_obj.officer_id
+                        print(f"Officer data compiled: {assigned_officer}")
+                    except Exception as e:
+                        print(f"Error processing officer data: {e}")
                         officer_id = str(comp.officer_id)
+                        print(f"Fallback officer_id: {officer_id}")
                 
                 return Response({
                     'id': comp.id,
@@ -1165,7 +1370,8 @@ class ComplaintInDetail(APIView):
                     'location_address': comp.location_address,
                     'location_district': comp.location_District,
                     'location_taluk': comp.location_taluk,
-                    'officer_id': officer_id
+                    'officer_id': officer_id,
+                    'assigned_officer': assigned_officer
                 })
             else:
                 # Return all complaints with basic details
@@ -1180,16 +1386,27 @@ class ComplaintInDetail(APIView):
                         except (ValueError, AttributeError):
                             image_url = None
                     
-                    # Handle officer_id properly
+                    # Handle officer information for list view
                     officer_id = None
+                    assigned_officer = None
                     if comp.officer_id:
                         try:
-                            # If officer_id is an Officer object, get its ID
-                            if hasattr(comp.officer_id, 'officer_id'):
-                                officer_id = comp.officer_id.officer_id
+                            if hasattr(comp.officer_id, 'id') and hasattr(comp.officer_id, 'get_full_name'):
+                                officer_obj = comp.officer_id
                             else:
-                                officer_id = comp.officer_id
-                        except (ValueError, AttributeError):
+                                officer_obj = Officer.objects.filter(Q(id=comp.officer_id) | Q(officer_id=comp.officer_id)).first()
+
+                            if officer_obj:
+                                officer_id = officer_obj.officer_id if hasattr(officer_obj, 'officer_id') else officer_obj.id
+                                assigned_officer = {
+                                    'id': officer_obj.id,
+                                    'name': officer_obj.get_full_name() if hasattr(officer_obj, 'get_full_name') else str(officer_obj),
+                                    'email': getattr(officer_obj, 'email', None),
+                                    'phone': getattr(officer_obj, 'phone', None)
+                                }
+                            else:
+                                officer_id = str(comp.officer_id)
+                        except Exception:
                             officer_id = str(comp.officer_id)
                     
                     complaint_list.append({
@@ -1203,7 +1420,8 @@ class ComplaintInDetail(APIView):
                         'location_address': comp.location_address,
                         'location_district': comp.location_District,
                         'location_taluk': comp.location_taluk,
-                        'officer_id': officer_id
+                        'officer_id': officer_id,
+                        'assigned_officer': assigned_officer
                     })
                 return Response(complaint_list)
         except Complaint.DoesNotExist:
@@ -1242,7 +1460,7 @@ class DepartmentUserProfile(APIView):
                 total_complaints = user_complaints.count()
                 resolved_complaints = user_complaints.filter(status='resolved').count()
                 pending_complaints = user_complaints.filter(status='Pending').count()
-                in_progress_complaints = user_complaints.filter(status='iin-progress').count()
+                in_progress_complaints = user_complaints.filter(status='in-progress').count()
                 
                 # Calculate performance score
                 performance_score = 0

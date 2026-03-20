@@ -19,13 +19,19 @@ class Department(models.Model):
     ]
     
     name = models.CharField(max_length=200)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, unique=True)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     description = models.TextField(blank=True)
     contact_email = models.EmailField()
     contact_phone = models.CharField(max_length=15)
     head_officer = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='headed_department')
     officers = models.ManyToManyField(CustomUser, related_name='departments', blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    def save(self, *args, **kwargs):
+        # Store the category code (e.g. 'ROADS') in `name` as requested.
+        if self.category:
+            self.name = self.category
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return self.name

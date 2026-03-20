@@ -50,7 +50,8 @@ export default function ComplaintStatusChart() {
         headers['Authorization'] = `Bearer ${token}`
       }
       
-      const response = await fetch(`${API_BASE}/api/complaintstatus/`, { headers })
+      // Use unified admin endpoints for status
+      const response = await fetch(`${API_BASE}/api/complaints/status/`, { headers })
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -75,9 +76,10 @@ export default function ComplaintStatusChart() {
       
       const data = await response.json()
       console.log('Status data from backend:', data)
+      // Expecting an object with status keys -> counts
       const formattedData = Object.entries(data).map(([status, count]) => ({
         name: status,
-        value: count as number,
+        value: Number(count) || 0,
         color: STATUS_COLORS[status as keyof typeof STATUS_COLORS] || '#6b7280'
       }))
       
@@ -115,7 +117,8 @@ export default function ComplaintStatusChart() {
         headers['Authorization'] = `Bearer ${token}`
       }
       
-      const response = await fetch(`${API_BASE}/api/complaintmonthwise/`, { headers })
+      // Use unified monthly trends endpoint (returns monthly_data array)
+      const response = await fetch(`${API_BASE}/api/complaint-status-trends/`, { headers })
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -143,18 +146,30 @@ export default function ComplaintStatusChart() {
       
       const data = await response.json()
       console.log('Monthly data from backend:', data)
-      
+
+      // If backend returns the new trends shape (monthly_data array), use it directly
+      if (data && Array.isArray(data.monthly_data)) {
+        const formatted = data.monthly_data.map((item: any) => ({
+          month: item.month || `${item.month_number}`,
+          complaints: Number(item.complaints) || 0
+        }))
+        setMonthlyData(formatted)
+        setLoading(false)
+        return
+      }
+
+      // Fallback: handle older map-style responses (e.g., { '1': 5, '2': 3, ... })
       const MONTH_NAMES = {
         1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May',
         6: 'June', 7: 'July', 8: 'August', 9: 'September', 10: 'October',
         11: 'November', 12: 'December'
       }
-      
+
       const formattedData = Object.entries(data).map(([monthNum, count]) => ({
-        month: MONTH_NAMES[parseInt(monthNum) as keyof typeof MONTH_NAMES] || `Month ${monthNum}`,
-        complaints: count as number
+        month: MONTH_NAMES[parseInt(monthNum) as keyof typeof MONTH_NAMES] || String(monthNum),
+        complaints: Number(count) || 0
       }))
-      
+
       setMonthlyData(formattedData)
     } catch (err: any) {
       console.error('Error fetching monthly data:', err)
@@ -249,7 +264,7 @@ export default function ComplaintStatusChart() {
       {/* Charts */}
       {chartType === 'status' ? (
         <div>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <PieChart>
               <Pie
                 data={statusData}
@@ -285,7 +300,7 @@ export default function ComplaintStatusChart() {
         </div>
       ) : (
         <div>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={400}>
             <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 

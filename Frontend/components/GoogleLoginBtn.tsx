@@ -14,6 +14,8 @@ export default function GoogleLoginBtn() {
         return '/department'
       case 'Admin-User':
         return '/admin'
+      case 'Officer':
+        return '/officer'
       case 'Civic-User':
       default:
         return '/user-details' // First go to user details, then dashboard

@@ -27,6 +27,8 @@ export default function UserDetailsPage() {
         return '/department'
       case 'Admin-User':
         return '/admin'
+      case 'Officer':
+        return '/officer'
       case 'Civic-User':
       default:
         return '/dashboard'

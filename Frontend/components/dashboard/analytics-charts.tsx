@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 
 interface StatusData {
   total_comp: number
@@ -10,7 +11,11 @@ interface StatusData {
 }
 
 interface MonthlyData {
-  [key: number]: number
+  monthly_data?: {
+    [key: number]: { month: string; count: number }
+  }
+  simplified?: { [key: number]: number }
+  year?: number
 }
 
 export default function AnalyticsCharts() {
@@ -87,8 +92,41 @@ export default function AnalyticsCharts() {
 
   // Prepare monthly data for bar chart
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const monthlyValues = monthNames.map((_, index) => monthlyData[index + 1] || 0)
+  
+  // Handle both old and new data formats
+  let monthlyValues: number[] = []
+  
+  if (monthlyData.monthly_data) {
+    // New format: use the structured data
+    monthlyValues = monthNames.map((_, index) => {
+      const monthData = monthlyData.monthly_data?.[index + 1]
+      return monthData?.count || 0
+    })
+  } else if (monthlyData.simplified) {
+    // Fallback to simplified format
+    monthlyValues = monthNames.map((_, index) => {
+      const value = monthlyData.simplified?.[index + 1]
+      return typeof value === 'number' ? value : 0
+    })
+  } else {
+    // Legacy format fallback
+    monthlyValues = monthNames.map((_, index) => {
+      const value = (monthlyData as any)[index + 1]
+      return typeof value === 'number' ? value : 0
+    })
+  }
+  
   const maxValue = Math.max(...monthlyValues, 1) // Avoid division by zero
+
+  // Chart helpers
+  const chartData = monthNames.map((m, i) => ({ name: m, complaints: monthlyValues[i] || 0 }))
+  const chartYAxisMax = Math.max(Math.ceil(maxValue * 1.2), 5)
+  const adaptiveBarSize = Math.max(18, Math.min(48, Math.floor(800 / monthNames.length)))
+
+  // Debug logging
+  console.log('Monthly data from API:', monthlyData)
+  console.log('Processed monthly values:', monthlyValues)
+  console.log('Current year:', monthlyData.year)
 
   if (loading) {
     return (
@@ -179,22 +217,25 @@ export default function AnalyticsCharts() {
 
         {/* Monthly Trend Chart */}
         <div className="glass-effect rounded-lg border border-border p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-6">Monthly Complaint Trend</h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-foreground">Monthly Complaint Trend</h3>
+            <span className="text-sm text-muted-foreground">
+              {monthlyData.year || new Date().getFullYear()}
+            </span>
+          </div>
 
-          <div className="flex items-end justify-center gap-2 h-64">
-            {/* Dynamic Bar Chart */}
-            {monthlyValues.map((value, index) => (
-              <div key={index} className="flex flex-col items-center gap-2 flex-1">
-                <div
-                  className="w-full bg-gradient-to-t from-primary to-secondary rounded-t transition-all duration-500 hover:opacity-80"
-                  style={{ height: `${(value / maxValue) * 200}px` }}
-                  title={`${monthNames[index]}: ${value} complaints`}
-                ></div>
-                <span className="text-xs text-muted-foreground">
-                  {monthNames[index]}
-                </span>
-              </div>
-            ))}
+          <div className="w-full overflow-x-auto">
+            <div style={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, chartYAxisMax]} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="complaints" fill="hsl(var(--sidebar-primary))" radius={[6, 6, 0, 0]} barSize={adaptiveBarSize} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Dynamic Stats Footer */}

@@ -8,6 +8,7 @@ interface AssignModalProps {
   open: boolean
   onClose: () => void
   complaint: { id: string; title: string; officer: string } | null
+  onAssignmentComplete?: () => void
 }
 
 interface Officer {
@@ -21,6 +22,7 @@ export default function AssignOfficerModal({
   open,
   onClose,
   complaint,
+  onAssignmentComplete,
 }: AssignModalProps) {
   const [officers, setOfficers] = useState<Officer[]>([])
   const [selectedOfficer, setSelectedOfficer] = useState("")
@@ -70,6 +72,9 @@ export default function AssignOfficerModal({
       })
       
       alert('Officer assigned successfully!')
+      if (onAssignmentComplete) {
+        onAssignmentComplete()
+      }
       handleClose()
     } catch (error: any) {
       // Log full response body when available for easier debugging

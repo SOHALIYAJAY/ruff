@@ -3,7 +3,7 @@
  import { useEffect, useState } from 'react'
  import { useRouter, usePathname } from 'next/navigation'
 
- type AllowedRole = 'Civic-User' | 'Admin-User' | 'Department-User'
+ type AllowedRole = 'Civic-User' | 'Admin-User' | 'Department-User' | 'Officer'
 
  interface RequireAuthProps {
    children: React.ReactNode

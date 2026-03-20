@@ -7,6 +7,7 @@ class CustomUser(AbstractUser, PermissionsMixin):
     CHOICE_FIELDS = (
         ('Civic-User', 'Civic-User'),
         ('Department-User', 'Department-User'),
+        ('Officer', 'Officer'),
         ('Admin-User', 'Admin-User')
     )
     name = models.CharField(max_length=100, blank=True, null=True)

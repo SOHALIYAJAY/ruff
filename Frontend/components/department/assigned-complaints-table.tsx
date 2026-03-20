@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import { useRouter } from "next/navigation"
 import api, { apiGet } from '@/lib/api'
 import {
@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Eye,
   Calendar,
   SortAsc,
   SortDesc,
@@ -20,8 +21,6 @@ import {
   ArrowUpRight,
   Upload,
 } from "lucide-react"
-
-import ViewDetailsButton from "./view-details-modal"
 
 export interface Complaint {
   id: number
@@ -39,6 +38,7 @@ export interface Complaint {
   current_time: string
   is_assignd?: boolean
   officer_id ?: string
+  officer_name?: string
 }
 
 
@@ -79,18 +79,49 @@ function SlaBar({ percent, remaining }: { percent: number; remaining: string }) 
   )
 }
 
+// Small button component to navigate to complaint details
+function ViewDetailsButton({ complaint, className = "" }: { complaint?: Complaint | null; className?: string }) {
+  const router = useRouter()
+  if (!complaint) return null
+
+  const handleClick = () => {
+    const route = `/department/complaint-details/${complaint.id}`
+    try {
+      router.push(route)
+    } catch (err) {
+      // Fallback to window location if router fails
+      window.location.href = route
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      title={`View details for complaint #${complaint.id}`}
+      className={`inline-flex items-center justify-center p-2 text-sm text-[#3b82f6] hover:bg-blue-50 rounded ${className}`}
+      onClick={handleClick}
+    >
+      <Eye className="w-4 h-4" />
+    </button>
+  )
+}
+
 // categories are loaded from the backend API
 // (hook state moved into the component to avoid invalid hook calls)
 
-export default function AssignedComplaintsTable({
-  onAssign,
-  onViewDetails,
-  initialView,
-}: {
+const AssignedComplaintsTable = forwardRef<{
+  refreshComplaints: () => void
+}, {
   onAssign: (complaint: Complaint) => void
   onViewDetails?: (complaint: Complaint) => void
   initialView?: "list" | "category"
-}) {
+  onAssignmentComplete?: () => void
+}>(({
+  onAssign,
+  onViewDetails,
+  initialView,
+  onAssignmentComplete,
+}, ref) => {
   const router = useRouter()
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
@@ -114,53 +145,105 @@ export default function AssignedComplaintsTable({
 
   const fetchComplaints = async () => {
     try {
-      // Use department-specific endpoint for department users
-      const response = await apiGet("/api/department/complaints/")
-      console.debug('API /api/department/complaints/ response:', response)
+      console.log('Fetching complaints...')
+      // Try general complaints endpoint first as it's more likely to work
+      const response = await apiGet("/api/complaints/")
+      console.debug('API /api/complaints/ response:', response)
+      
+      if (!response || !Array.isArray(response)) {
+        console.error('Invalid response from general complaints API:', response)
+        setComplaints([])
+        return
+      }
       
       // Transform the response data to match the expected Complaint interface
-      const transformedComplaints = response.map((item: any) => ({
-        id: item.id,
-        title: item.title,
-        Category: item.category,
-        Description: item.description,
-        video_image: '', // Not provided by department endpoint
-        image_video: '', // Not provided by department endpoint
-        location_District: item.location || 'Not specified',
-        location_address: item.location || 'Not specified',
-        category_code: item.category,
-        category_name: item.category,
-        priority_level: item.priority || 'Medium',
-        status: item.status || 'Pending',
-        current_time: item.submittedDate || new Date().toISOString(),
-        is_assignd: item.assignedOfficer !== 'Unassigned',
-        officer_id: item.assignedOfficer || null
-      }))
+      const transformedComplaints = response.map((item: any) => {
+        const officerId = item.officer_id || null
+        console.log('Processing complaint:', item.id, 'officer_id:', officerId, 'is_assignd:', item.is_assignd)
+        
+        return {
+          id: item.id,
+          title: item.title,
+          Category: item.Category?.name || item.Category || 'Uncategorized',
+          Description: item.Description,
+          video_image: item.image_video || '',
+          image_video: item.image_video || '',
+          location_District: item.location_District || 'Not specified',
+          location_address: item.location_address || 'Not specified',
+          category_code: item.Category?.code || '',
+          category_name: item.Category?.name || item.Category || 'Uncategorized',
+          priority_level: item.priority_level || 'Medium',
+          status: item.status || 'Pending',
+          current_time: item.current_time || new Date().toISOString(),
+          is_assignd: item.is_assignd || false,
+          officer_id: officerId,
+          officer_name: item.officer_name || null
+        }
+      })
       
-      // Log the structure of the first complaint to check if it has an id
+      console.log('Transformed complaints:', transformedComplaints)
+      setComplaints(transformedComplaints)
+      
       if (transformedComplaints && transformedComplaints.length > 0) {
         console.log('First complaint structure:', transformedComplaints[0])
         console.log('First complaint id:', transformedComplaints[0].id)
         console.log('First complaint type:', typeof transformedComplaints[0])
         console.log('All complaint IDs:', transformedComplaints.map((c: any) => c.id))
       }
-      
-      setComplaints(transformedComplaints)
     } catch (error) {
-      console.error('Error fetching department complaints:', error)
-      // Fallback to regular complaints if department endpoint fails
+      console.error('Error fetching general complaints:', error)
+      // Fallback to department endpoint if general endpoint fails
       try {
-        const fallbackResponse = await apiGet("/api/getcomplaint/")
-        console.debug('Fallback API /api/getcomplaint/ response:', fallbackResponse)
-        setComplaints(fallbackResponse)
+        console.log('Falling back to department endpoint...')
+        const fallbackResponse = await apiGet("/api/department/complaints/")
+        if (Array.isArray(fallbackResponse)) {
+          const transformedComplaints = fallbackResponse.map((item: any) => {
+          const officerId = item.assignedOfficer || null
+          console.log('Processing fallback complaint:', item.id, 'assignedOfficer:', officerId)
+          
+          return {
+            id: item.id,
+            title: item.title,
+            Category: item.category,
+            Description: item.description,
+            video_image: '', // Not provided by department endpoint
+            image_video: '', // Not provided by department endpoint
+            location_District: item.location || 'Not specified',
+            location_address: item.location || 'Not specified',
+            category_code: item.category,
+            category_name: item.category,
+            priority_level: item.priority || 'Medium',
+            status: item.status || 'Pending',
+            current_time: item.submittedDate || new Date().toISOString(),
+            is_assignd: officerId !== 'Unassigned' && officerId !== null,
+            officer_id: officerId,
+            officer_name: officerId // For department endpoint, assignedOfficer is already the name
+          }
+        })
+          setComplaints(transformedComplaints)
+        }
       } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError)
+        console.error('Error fetching fallback complaints:', fallbackError)
         setComplaints([])
       }
     } finally {
       setLoading(false)
     }
   }
+
+  // Expose refresh function for parent components
+  const refreshComplaints = () => {
+    setLoading(true)
+    fetchComplaints()
+    if (onAssignmentComplete) {
+      onAssignmentComplete()
+    }
+  }
+
+  // Expose the refresh function via ref
+  useImperativeHandle(ref, () => ({
+    refreshComplaints
+  }), [onAssignmentComplete])
 
   const fetchCategories = async () => {
     try {
@@ -209,7 +292,8 @@ export default function AssignedComplaintsTable({
 
   const filtered = useMemo(() => {
     let result = complaints.filter((c) => {
-      const rawCat = (c as any).category_code || (c as any).Category || (c as any).category_name || ""
+      // Handle different category field names from different endpoints
+      const rawCat = (c as any).Category || (c as any).category_name || (c as any).category || (c as any).category_code || 'Other'
       let catKey: any = rawCat
       if (typeof rawCat === 'object' && rawCat !== null) {
         // Category may be serialized as an object
@@ -241,8 +325,11 @@ export default function AssignedComplaintsTable({
 
   const groupedByCategory = useMemo(() => {
     const groups: Record<string, Complaint[]> = {}
+    console.log('Grouping complaints by category, total complaints:', filtered.length)
+    
     filtered.forEach((complaint) => {
-      const rawCat = (complaint as any).category_code || (complaint as any).Category || (complaint as any).category_name || 'Other'
+      // Handle different category field names from different endpoints
+      const rawCat = (complaint as any).Category || (complaint as any).category_name || (complaint as any).category || (complaint as any).category_code || 'Other'
       let key: any = rawCat
       if (typeof rawCat === 'object' && rawCat !== null) {
         key = rawCat.code || rawCat.name || rawCat.id || String(rawCat)
@@ -253,26 +340,50 @@ export default function AssignedComplaintsTable({
         key = categoriesMap[key] || categoriesMap[String(key).toUpperCase()] || String(key)
       }
       key = String(key).toUpperCase()
+      console.log('Complaint:', complaint.id, 'Raw category:', rawCat, 'Mapped key:', key)
+      
       if (!groups[key]) {
         groups[key] = []
       }
       groups[key].push(complaint)
     })
+    
+    console.log('Final groups:', groups)
     return groups
   }, [filtered, categoriesMap])
 
   // When category filter changes, show only that category in category view
   const displayedCategories = useMemo(() => {
+    console.log('Computing displayedCategories, categoryFilter:', categoryFilter)
+    console.log('groupedByCategory keys:', Object.keys(groupedByCategory))
+    console.log('allCategories:', allCategories)
+    
     if (categoryFilter !== "All") {
-      return { [String(categoryFilter).toUpperCase()]: groupedByCategory[String(categoryFilter).toUpperCase()] || [] }
+      const filterKey = String(categoryFilter).toUpperCase()
+      console.log('Filtering for specific category:', filterKey)
+      return { [filterKey]: groupedByCategory[filterKey] || [] }
     }
-    // Show all categories, even if empty
+    // Build the union of categories from the API and categories discovered from complaints
+    const apiCats = (allCategories || []).map((c) => String(c).toUpperCase())
+    const discoveredCats = Object.keys(groupedByCategory || {}).map((k) => String(k).toUpperCase())
+    const unionSet = new Set<string>([...apiCats, ...discoveredCats])
+
+    // If there are no categories at all, fall back to groupedByCategory directly
+    if (unionSet.size === 0) {
+      console.log('No categories from API or complaints; returning groupedByCategory')
+      return Object.keys(groupedByCategory).reduce((acc, k) => {
+        acc[k] = groupedByCategory[k]
+        return acc
+      }, {} as Record<string, Complaint[]>)
+    }
+
     const allCats: Record<string, Complaint[]> = {}
-    allCategories.forEach(cat => {
-      allCats[String(cat).toUpperCase()] = groupedByCategory[String(cat).toUpperCase()] || []
+    unionSet.forEach((catKey) => {
+      allCats[catKey] = groupedByCategory[catKey] || []
     })
+    console.log('All displayed categories (union of API and discovered):', allCats)
     return allCats
-  }, [categoryFilter, groupedByCategory])
+  }, [categoryFilter, groupedByCategory, allCategories])
 
   const totalPages = Math.ceil(filtered.length / perPage)
   const paginated = filtered.slice((page - 1) * perPage, page * perPage)
@@ -281,9 +392,13 @@ export default function AssignedComplaintsTable({
     return (
       <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm p-12 text-center">
         <p className="text-slate-600">Loading complaints...</p>
+        <p className="text-xs text-slate-400 mt-2">Debug: Loading state = {loading.toString()}</p>
       </div>
     )
   }
+
+  // Debug: Show current state
+  console.log('Current state - loading:', loading, 'complaints count:', complaints.length, 'filtered count:', filtered.length)
 
   return (
     <div className="bg-white rounded-lg border border-[#e2e8f0] shadow-sm">
@@ -361,68 +476,64 @@ export default function AssignedComplaintsTable({
               No complaints found in selected category.
             </div>
           ) : (
-            Object.entries(displayedCategories).map(([category, complaints]) => (
-            <div key={category} className="border border-[#e2e8f0] rounded-lg overflow-hidden">
-              <button
-                onClick={() => toggleCategory(category)}
-                className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-slate-800">{category}</span>
-                  <span className="text-xs px-2 py-1 bg-[#1e40af] text-white rounded-full">
-                    {complaints.length}
-                  </span>
-                </div>
-                {expandedCategories.has(category) ? (
-                  <ChevronUp className="w-4 h-4 text-slate-600" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-slate-600" />
-                )}
-              </button>
-              {expandedCategories.has(category) && (
-                <div className="divide-y divide-[#e2e8f0]">
-                  {complaints.map((c) => (
-                    <div key={c.id} className="p-4 hover:bg-blue-50/40 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-mono font-semibold text-[#1e40af]">CVT-{c.id}</span>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${priorityColors[c.priority_level]}`}>
-                              {c.priority_level}
-                            </span>
-                            <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${statusColors[c.status]}`}>
-                              {c.status}
-                            </span>
+            Object.entries(displayedCategories).map(([category, categoryComplaints]) => (
+              <div key={category} className="border border-[#e2e8f0] rounded-lg overflow-hidden">
+                <button
+                  onClick={() => toggleCategory(category)}
+                  className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-slate-800">{category}</span>
+                    <span className="text-xs px-2 py-1 bg-[#1e40af] text-white rounded-full">
+                      {categoryComplaints.length}
+                    </span>
+                  </div>
+                  {expandedCategories.has(category) ? (
+                    <ChevronUp className="w-4 h-4 text-slate-600" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-600" />
+                  )}
+                </button>
+                {expandedCategories.has(category) && (
+                  <div className="divide-y divide-[#e2e8f0]">
+                    {categoryComplaints.map((c) => (
+                      <div key={c.id} className="p-4 hover:bg-blue-50/40 transition-colors">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xs font-mono font-semibold text-[#1e40af]">CVT-{c.id}</span>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${priorityColors[c.priority_level]}`}>
+                                {c.priority_level}
+                              </span>
+                              <span className={`text-[11px] px-2 py-0.5 rounded-full border font-semibold ${statusColors[c.status]}`}>
+                                {c.status}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-800 mb-1">{c.title}</p>
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                              <span>{c.location_District}</span>
+                              <span>•</span>
+                              <span>{c.location_address}</span>
+                            </div>
                           </div>
-                          <p className="text-sm font-medium text-slate-800 mb-1">{c.title}</p>
-                          <div className="flex items-center gap-4 text-xs text-slate-500">
-                            <span>{c.location_District}</span>
-                            <span>•</span>
-                            <span>{c.location_address}</span>
-                            <span>•</span>
-                            {/* <span className={c.officer === "Unassigned" ? "text-[#dc2626] italic" : ""}>
-                              {c.officer}
-                            </span> */}
-                          </div>
-                        </div>
                           <div className="flex items-center gap-1">
-                          <ViewDetailsButton complaint={loading ? null : c} className="p-2 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors" />
-                          {c.is_assignd ? (
-                            <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">Assigned</span>
-                          ) : (
-                            <button onClick={() => onAssign(c)} className="p-2 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
-                              <UserPlus className="w-4 h-4" />
-                            </button>
-                          )}
+                            <ViewDetailsButton complaint={loading ? null : c} className="p-2 text-[#3b82f6] hover:bg-blue-50 rounded transition-colors" />
+                            {c.officer_name && c.officer_name !== "Unassigned" && c.officer_name !== "null" && c.officer_name !== "" ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">Assigned</span>
+                            ) : (
+                              <button onClick={() => onAssign(c)} className="p-2 text-[#7c3aed] hover:bg-violet-50 rounded transition-colors">
+                                <UserPlus className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )))
-          }
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       ) : (
         <>
@@ -454,8 +565,8 @@ export default function AssignedComplaintsTable({
                 <td className="px-4 py-3.5 text-slate-600 hidden lg:table-cell">{c.location_District}</td>
                 <td className="px-4 py-3.5 text-slate-500 text-xs hidden xl:table-cell max-w-[140px] truncate">{c.location_address}</td>
                 <td className="px-4 py-3.5 hidden lg:table-cell">
-                  <span className={c.officer_id === "Unassigned" ? "text-[#dc2626] italic text-xs" : "text-slate-600 text-xs"}>
-                    {c.officer_id}
+                  <span className={!c.officer_name || c.officer_name === "Unassigned" || c.officer_name === "null" || c.officer_name === "" ? "text-[#dc2626] italic text-xs" : "text-slate-600 text-xs"}>
+                    {!c.officer_name || c.officer_name === "Unassigned" || c.officer_name === "null" || c.officer_name === "" ? "Not Assigned" : c.officer_name}
                   </span>
                 </td>
                 <td className="px-4 py-3.5">
@@ -500,7 +611,7 @@ export default function AssignedComplaintsTable({
                       Go
                     </button>
                     
-                    {c.is_assignd ? (
+                    {c.officer_name && c.officer_name !== "Unassigned" && c.officer_name !== "null" && c.officer_name !== "" ? (
                       <button title="Assigned" disabled className="p-1.5 text-slate-400 rounded transition-colors cursor-not-allowed" aria-disabled>
                         <span className="text-xs font-medium">Assigned</span>
                       </button>
@@ -532,6 +643,7 @@ export default function AssignedComplaintsTable({
               <tr>
                 <td colSpan={12} className="px-5 py-12 text-center text-slate-400">
                   No complaints match your filters.
+                  <p className="text-xs mt-2">Debug: Total complaints: {complaints.length}, Filtered: {filtered.length}, Paginated: {paginated.length}</p>
                 </td>
               </tr>
             )}
@@ -578,4 +690,8 @@ export default function AssignedComplaintsTable({
       )}
     </div>
   )
-}
+})
+
+AssignedComplaintsTable.displayName = 'AssignedComplaintsTable'
+
+export default AssignedComplaintsTable

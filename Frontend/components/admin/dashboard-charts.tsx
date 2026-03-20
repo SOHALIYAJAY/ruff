@@ -55,30 +55,48 @@ export default function DashboardCharts() {
   const fetchMonthlyData = async () => {
     try {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
-      const response = await fetch(`${API_BASE}/api/complaints/monthly/`)
+      // Prefer unified trends endpoint that returns a monthly_data array
+      const response = await fetch(`${API_BASE}/api/complaint-status-trends/`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
       const data = await response.json()
-      setMonthlyData(data)
-      
-      // Calculate summary statistics
-      const months = Object.keys(data)
-      const values = Object.values(data)
+
+      // If backend returns { monthly_data: [...] }
+      if (data && Array.isArray(data.monthly_data)) {
+        const map: MonthlyData = {}
+        data.monthly_data.forEach((item: any) => {
+          map[item.month] = Number(item.complaints) || 0
+        })
+        setMonthlyData(map)
+
+        const months = Object.keys(map)
+        const values = Object.values(map)
+        const total = values.reduce((sum: number, val: number) => sum + val, 0)
+        const average = months.length ? Math.round(total / months.length) : 0
+        const maxIndex = values.indexOf(Math.max(...values))
+        const peak_month = months[maxIndex] || ''
+        const peak_count = values[maxIndex] || 0
+
+        setSummary({ average, peak_month, peak_count, total })
+        return
+      }
+
+      // Fallback: older API returns a map/object of monthName->count
+      const mapData = data && typeof data === 'object' ? data : {}
+      setMonthlyData(mapData)
+
+      const months = Object.keys(mapData)
+      const values = Object.values(mapData).map(v => Number(v) || 0)
       const total = values.reduce((sum: number, val: number) => sum + val, 0)
-      const average = Math.round(total / months.length)
+      const average = months.length ? Math.round(total / months.length) : 0
       const maxIndex = values.indexOf(Math.max(...values))
-      const peak_month = months[maxIndex]
-      const peak_count = values[maxIndex]
-      
-      setSummary({
-        average,
-        peak_month,
-        peak_count,
-        total
-      })
+      const peak_month = months[maxIndex] || ''
+      const peak_count = values[maxIndex] || 0
+
+      setSummary({ average, peak_month, peak_count, total })
     } catch (error) {
       console.error('Error fetching monthly data:', error)
       setError('Failed to load monthly complaint data')

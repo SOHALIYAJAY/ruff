@@ -63,6 +63,20 @@ class RegisterView(APIView):
             username=username or email.split('@')[0],
             User_Role=role
         )
+        # If the user is an Officer, create a corresponding Officer record
+        try:
+            if role == 'Officer':
+                from departments.models import Officer as DeptOfficer
+                officer_id = f"OFF{user.id}"
+                DeptOfficer.objects.create(
+                    officer_id=officer_id,
+                    name=user.get_full_name() or user.username,
+                    email=user.email,
+                    phone=getattr(user, 'mobile_number', '') or ''
+                )
+        except Exception:
+            # Non-critical: continue even if Officer creation fails
+            pass
         
         # Auto-login after signup
         refresh = RefreshToken.for_user(user)
@@ -322,7 +336,7 @@ class UserListCreateView(APIView):
 
 
 class UserRetrieveUpdateDeleteView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get_object(self, user_id):
         try:

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { UserPlus, BarChart3, Search } from "lucide-react"
+import api, { apiGet } from '@/lib/api'
 import OfficersKpiCards from "@/components/admin/officers/officers-kpi-cards"
 import OfficersTable from "@/components/admin/officers/officers-table"
 import OfficerProfileModal from "@/components/admin/officers/officer-profile-modal"
@@ -12,39 +13,57 @@ import DeleteOfficerModal from "@/components/admin/officers/delete-officer-modal
 import { Officer } from "@/components/admin/officers/officers-table"
 
 export default function AdminOfficersPage() {
+  const [officers, setOfficers] = useState<Officer[]>([])
+  const [loading, setLoading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("All")
   const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
   const [showAddOfficer, setShowAddOfficer] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("All")
   const [editingOfficer, setEditingOfficer] = useState<Officer | null>(null)
   const [deletingOfficer, setDeletingOfficer] = useState<Officer | null>(null)
+
+  // Fetch officers from API
+  useEffect(() => {
+    fetchOfficers()
+  }, [])
+
+  const fetchOfficers = async () => {
+    try {
+      setLoading(true)
+      const response = await apiGet('/api/officerinfo/')
+      setOfficers(response)
+    } catch (error) {
+      console.error('Error fetching officers:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleEditOfficer = (officer: Officer) => {
     setEditingOfficer(officer)
   }
 
   const handleDeleteOfficer = (officerId: string) => {
-    // Find the officer from the table data
-    // This is a simplified approach - in real implementation, you'd get the full officer object
-    const officer: Officer = {
-      officer_id: officerId,
-      name: '', // This would be populated from the table data
-      email: '',
-      phone: '',
-      is_available: true
+    const officer = officers.find(o => o.officer_id === officerId)
+    if (officer) {
+      setDeletingOfficer(officer)
     }
-    setDeletingOfficer(officer)
   }
 
   const handleSaveOfficer = (updatedOfficer: Officer) => {
-    // Refresh the officers table
-    window.location.reload()
+    // Update officers list
+    setOfficers(prev => prev.map(o => 
+      o.officer_id === updatedOfficer.officer_id ? updatedOfficer : o
+    ))
+    setEditingOfficer(null)
   }
 
   const handleConfirmDelete = () => {
-    // Refresh the officers table
-    window.location.reload()
+    if (deletingOfficer) {
+      setOfficers(prev => prev.filter(o => o.officer_id !== deletingOfficer.officer_id))
+      setDeletingOfficer(null)
+    }
   }
 
   return (

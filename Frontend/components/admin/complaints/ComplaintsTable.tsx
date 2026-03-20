@@ -44,64 +44,9 @@ export default function ComplaintsTable({
   onUpdate,
   onDelete
 }: ComplaintsTableProps) {
-  // Filter complaints based on all filter criteria
-  const filteredComplaints = complaints.filter((complaint) => {
-    // Search filter - handle undefined values safely
-    const complaintCategory = (complaint as any).category_name || (complaint as any).Category || ''
-    const matchesSearch = searchQuery === '' || 
-      (complaint.id && complaint.id.toString().includes(searchQuery.toLowerCase())) ||
-      (complaint.title && complaint.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (complaint.id && complaint.id.toString().toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (complaintCategory && String(complaintCategory).toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (complaint.location_address && complaint.location_address.toLowerCase().includes(searchQuery.toLowerCase()))
-    
-    // Department filter - handle undefined values safely
-    let selectedDeptName: string | undefined = undefined
-    if (selectedDepartment && selectedDepartment !== 'all') {
-      const byId = departments.find(d => d.id.toString() === selectedDepartment)
-      selectedDeptName = byId ? byId.name : selectedDepartment
-    }
-    const matchesDepartment = selectedDepartment === 'all' || 
-      (complaintCategory && selectedDeptName && String(complaintCategory) === String(selectedDeptName))
-    
-    // Status filter - handle undefined values safely
-    const matchesStatus = selectedStatus === 'all' || (complaint.status && complaint.status === selectedStatus)
-    
-    // Priority filter - handle undefined values safely
-    const matchesPriority = selectedPriority === 'all' || (complaint.priority_level && complaint.priority_level === selectedPriority)
-    
-    // Date range filter
-    let matchesDateRange = true
-    if (selectedDateRange !== 'all' && complaint.current_time) {
-      const complaintDate = new Date(complaint.current_time)
-      const now = new Date()
-      
-      switch (selectedDateRange) {
-        case 'today':
-          matchesDateRange = complaintDate.toDateString() === now.toDateString()
-          break
-        case 'week':
-          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-          matchesDateRange = complaintDate >= weekAgo
-          break
-        case 'month':
-          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-          matchesDateRange = complaintDate >= monthAgo
-          break
-        case 'quarter':
-          const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-          matchesDateRange = complaintDate >= quarterAgo
-          break
-        case 'year':
-          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-          matchesDateRange = complaintDate >= yearAgo
-          break
-      }
-    }
-    
-    return matchesSearch && matchesDepartment && matchesStatus && matchesPriority && matchesDateRange
-  })
-
+  // Note: No client-side filtering needed since backend handles pagination with filters
+  // Just display the complaints that are passed to this component
+  
   return (
     <div className="bg-white rounded-xl border border-[#E2E8F0] shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
@@ -129,8 +74,8 @@ export default function ComplaintsTable({
                   </div>
                 </td>
               </tr>
-            ) : filteredComplaints.length > 0 ? (
-              filteredComplaints.map((complaint, index) => {
+            ) : complaints.length > 0 ? (
+              complaints.map((complaint, index) => {
                 // Create a unique key using multiple fields to ensure uniqueness
                 const uniqueKey = complaint.id
                   ? complaint.id.toString()
