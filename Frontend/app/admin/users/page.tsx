@@ -470,6 +470,21 @@ export default function AdminUsersPage() {
     }
   }
 
+  const getRoleProfileColor = (role: string) => {
+    switch (role?.toLowerCase()) {
+      case 'admin':
+        return 'bg-purple-500 text-white'
+      case 'officer':
+        return 'bg-blue-500 text-white'
+      case 'department-user':
+        return 'bg-green-500 text-white'
+      case 'user':
+        return 'bg-gray-500 text-white'
+      default:
+        return 'bg-yellow-500 text-white'
+    }
+  }
+
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -714,8 +729,8 @@ export default function AdminUsersPage() {
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-                          <span className="text-xs font-medium text-gray-600">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${getRoleProfileColor(user.role)}`}>
+                          <span className="text-xs font-medium">
                             {user.first_name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || 'U'}
                           </span>
                         </div>

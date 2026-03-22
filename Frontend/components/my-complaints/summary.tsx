@@ -61,8 +61,6 @@ export default function ComplaintsSummary() {
       const token = localStorage.getItem('access_token')
       const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
       
-      console.log(`Fetching stats from: ${API_BASE}/complaintsinfo/`)
-      
       const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Content-Type': 'application/json'

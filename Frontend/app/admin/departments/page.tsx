@@ -22,6 +22,7 @@ interface DepartmentStats {
   departments_with_head: number
   departments_without_head: number
   category_distribution: Array<{ category: string; count: number }>
+  department_statistics: Array<{ name: string; complaint_count: number; officer_count: number }>
 }
 
 export default function DepartmentsPage() {
@@ -64,13 +65,22 @@ export default function DepartmentsPage() {
     { value: 'OTHER', label: 'Other' },
   ]
 
+  function getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('adminToken') || localStorage.getItem('access_token')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token && token !== 'undefined' && token !== 'null') {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return headers
+  }
+
   async function fetchDepartments() {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/admin/departments/`)
-      if (!res.ok) throw new Error('Failed to fetch departments')
+      const res = await fetch(`${API_BASE}/api/admin/departments/`, { headers: getAuthHeaders() })
+      if (!res.ok) throw new Error(`Failed to fetch departments (${res.status})`)
       const data = await res.json()
-      setDepartments(data)
+      setDepartments(Array.isArray(data) ? data : [])
       setError(null)
     } catch (e: any) {
       setError(e.message || 'Error fetching departments')
@@ -79,45 +89,39 @@ export default function DepartmentsPage() {
     }
   }
 
-  async function fetchStats() {
+  async function fetchDepartmentStatistics() {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/departments/stats/`)
-      if (!res.ok) throw new Error('Failed to fetch stats')
+      const res = await fetch(`${API_BASE}/api/departments/statistics/`, { headers: getAuthHeaders() })
+      if (!res.ok) throw new Error(`Failed to fetch department statistics (${res.status})`)
       const data = await res.json()
-      
-      // Calculate category distribution
-      const categoryCount = departments.reduce((acc: any, dept) => {
-        acc[dept.category] = (acc[dept.category] || 0) + 1
-        return acc
-      }, {})
-
-      const categoryDistribution = Object.entries(categoryCount).map(([category, count]) => ({
-        category: categoryChoices.find(c => c.value === category)?.label || category,
-        count: count as number
-      }))
-
-      setStats({
-        total_departments: departments.length,
-        total_officers: departments.reduce((sum, dept) => sum + dept.officer_count, 0),
-        departments_with_head: departments.filter(dept => dept.head_officer_name).length,
-        departments_without_head: departments.filter(dept => !dept.head_officer_name).length,
-        category_distribution: categoryDistribution
-      })
+      if (data.department_statistics) {
+        setStats(prev => prev ? { ...prev, department_statistics: data.department_statistics } : null)
+      }
     } catch (e: any) {
-      console.error('Error fetching stats:', e)
+      console.error('Error fetching department statistics:', e.message)
     }
+  }
+
+  function computeStats(depts: Department[]) {
+    const categoryCount = depts.reduce((acc: any, dept) => {
+      acc[dept.category] = (acc[dept.category] || 0) + 1
+      return acc
+    }, {})
+    const categoryDistribution = Object.entries(categoryCount).map(([category, count]) => ({
+      category: categoryChoices.find(c => c.value === category)?.label || category,
+      count: count as number
+    }))
+    setStats({
+      total_departments: depts.length,
+      total_officers: depts.reduce((sum, dept) => sum + dept.officer_count, 0),
+      departments_with_head: depts.filter(dept => dept.head_officer_name).length,
+      departments_without_head: depts.filter(dept => !dept.head_officer_name).length,
+      category_distribution: categoryDistribution
+    })
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const token = localStorage.getItem('access_token')
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json'
-    }
-    
-    if (token && token !== 'undefined' && token !== 'null') {
-      headers['Authorization'] = `Bearer ${token}`
-    }
 
     try {
       const url = editingDepartment 
@@ -128,7 +132,7 @@ export default function DepartmentsPage() {
       
       const res = await fetch(url, {
         method,
-        headers,
+        headers: getAuthHeaders(),
         body: JSON.stringify(form)
       })
 
@@ -144,17 +148,10 @@ export default function DepartmentsPage() {
   }
 
   async function handleDelete(department: Department) {
-    const token = localStorage.getItem('access_token')
-    const headers: Record<string, string> = {}
-    
-    if (token && token !== 'undefined' && token !== 'null') {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-
     try {
       const res = await fetch(`${API_BASE}/api/admin/departments/${department.id}/`, {
         method: 'DELETE',
-        headers
+        headers: getAuthHeaders()
       })
 
       if (!res.ok) throw new Error('Failed to delete department')
@@ -194,11 +191,12 @@ export default function DepartmentsPage() {
 
   useEffect(() => {
     fetchDepartments()
+    fetchDepartmentStatistics()
   }, [])
 
   useEffect(() => {
     if (departments.length > 0) {
-      fetchStats()
+      computeStats(departments)
     }
   }, [departments])
 
@@ -288,40 +286,31 @@ export default function DepartmentsPage() {
       )}
 
       {/* Charts */}
-      {stats && stats.category_distribution.length > 0 && (
+      {stats && stats.department_statistics && stats.department_statistics.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Department Distribution by Category</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Department-wise Complaints</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats.category_distribution}>
+              <BarChart data={stats.department_statistics} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" />
+                <Bar dataKey="complaint_count" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
           
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Distribution</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Department-wise Officers</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={stats.category_distribution}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="count"
-                  label={({category, percent}) => `${category}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {stats.category_distribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={stats.department_statistics} layout="horizontal">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
                 <Tooltip />
-              </PieChart>
+                <Bar dataKey="officer_count" fill="#10b981" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>

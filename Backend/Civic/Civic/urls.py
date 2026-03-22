@@ -22,7 +22,7 @@ from Civic import views
 from Civic.views import getcomplaint,getcomplaintlimit,getpubliccomplaints,compinfo,complaintofficer,officerprofile,officerkpi,adminallcomplaintcart,adimncomplaints,ComplaintDelete,assigncomp,crateofficer,CategoriesList,CategoryDelete,adminstats,TrackComplaint,ComplaintStatus,OfficerDelete,OfficerUpdate,OfficerAnalytics,Logout,UserMonthlyRegistrations,admindashboardcard,UserRoleDistribution,ComplaintStatusTrends,CivicUserActivityView,DepartmentList
 from accounts.views import RegisterView, LoginView, LogoutView, GoogleLoginView, UserDetail, UpdateUserDetails, UserListCreateView, UserRetrieveUpdateDeleteView, ChangePasswordView, UserActivityView, ToggleTwoFactorView, UserComplaintsView, TestAPIView, AdminProfileView, AdminUpdateProfileView, AdminSystemSettingsView
 from contact_us.views import ContactUSview
-from departments.views import OfficerDetail, department_profile, department_officers, department_complaints, department_performance, update_department_profile
+from departments.views import OfficerDetail, department_profile, department_officers, department_complaints, department_performance, update_department_profile, department_dashboard, departments_overview, department_statistics
 from departments.admin_urls import urlpatterns as department_admin_urls
 
 
@@ -99,7 +99,9 @@ urlpatterns = [
     path('api/complaints/monthly/',views.ComplaintMonthlyStats.as_view(),name='complaint-monthly-stats'),
     path('api/departments/', DepartmentList.as_view(), name='departments-list'),
     path('api/admin/departments/', include(department_admin_urls)),
-    path('api/department/dashboard/',views.DepartmentDashboardStats.as_view(),name='department-dashboard-stats'),
+    path('api/department/dashboard/', department_dashboard, name='department-dashboard'),
+    path('api/departments/overview/', departments_overview, name='departments-overview'),
+    path('api/departments/statistics/', department_statistics, name='departments-statistics'),
     path('api/department/user-profile/',views.DepartmentUserProfile.as_view(),name='department-user-profile'),
     path('api/department/profile/', department_profile, name='department-profile'),
     path('api/department/officers/', department_officers, name='department-officers'),

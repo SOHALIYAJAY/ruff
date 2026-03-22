@@ -68,13 +68,11 @@ export default function ActivityLog() {
         setLoading(true)
         const token = localStorage.getItem('access_token')
         if (!token) {
-          console.log('No authentication token found - showing fallback data')
           setActivities(fallbackActivities)
           setLoading(false)
           return
         }
 
-        console.log('Fetching user activity data...')
         // Fetch user activity from backend
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/user-activity/`, {
           headers: {
@@ -83,36 +81,29 @@ export default function ActivityLog() {
           }
         })
 
-        console.log('Activity API response status:', response.status)
-        
         if (response.ok) {
           const data = await response.json()
-          console.log('Activity API response data:', data)
           
           const activityData = data.data || data || []
           
-          // Transform backend data to frontend format
-          const transformedActivities: Activity[] = activityData.map((item: any, index: number) => ({
-            id: item.id || String(index + 1),
-            type: item.type || 'other',
-            title: item.title || 'Activity',
-            description: item.description || 'No description available',
+          // Transform activity data to match our interface
+          const transformedActivities = activityData.map((item: any) => ({
+            id: item.id || Math.random().toString(36).substr(2, 9),
+            type: item.type || 'login',
+            description: item.description || 'Activity logged',
             timestamp: item.timestamp || new Date().toISOString(),
             icon: getActivityIcon(item.type)
           }))
           
-          console.log('Transformed activities:', transformedActivities)
           setActivities(transformedActivities)
         } else {
           const errorText = await response.text()
-          console.error('Activity API error response:', response.status, errorText)
-          throw new Error(`API Error: ${response.status} - ${errorText}`)
+          console.error('Failed to fetch activity data:', errorText)
         }
       } catch (error) {
         console.error('Error fetching activity data:', error)
         
         // Set fallback data for demo
-        console.log('Using fallback activity data')
         setActivities(fallbackActivities)
       } finally {
         setLoading(false)

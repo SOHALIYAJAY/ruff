@@ -51,7 +51,7 @@ export default function GoogleLoginBtn() {
   }
 
   const handleError = () => {
-    console.log("Google Login Failed")
+    // Handle login error
   }
 
   return (

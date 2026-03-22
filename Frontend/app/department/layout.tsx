@@ -1,28 +1,30 @@
  "use client"
 
- import { useState } from "react"
- import { usePathname, useRouter } from "next/navigation"
- import {
-   Menu,
-   X,
-   Search,
-   LogOut,
-   LayoutDashboard,
-   FileText,
-   Users,
-   User,
-   ChevronLeft,
-   ChevronRight,
-   Home,
- } from "lucide-react"
- import RequireAuth from '@/components/auth/RequireAuth'
+import { useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import {
+  Menu,
+  X,
+  Search,
+  LogOut,
+  LayoutDashboard,
+  FileText,
+  Users,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Building2,
+} from "lucide-react"
+import RequireAuth from '@/components/auth/RequireAuth'
 
 const menuItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: LayoutDashboard, label: "Dashboard", path: "/department" },
+  { icon: Building2, label: "Departments Overview", path: "/department/departments-overview" },
   { icon: FileText, label: "Assigned Complaints", path: "/department/assigned" },
   { icon: Users, label: "Officers", path: "/department/officers" },
-  { icon: Users, label: "Users", path: "/department/users" },
+  // { icon: Users, label: "Users", path: "/department/users" },
   { icon: User, label: "Profile", path: "/department/profile" },
 ]
 

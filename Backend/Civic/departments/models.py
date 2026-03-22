@@ -29,8 +29,8 @@ class Department(models.Model):
     
     def save(self, *args, **kwargs):
         # Store the category code (e.g. 'ROADS') in `name` as requested.
-        if self.category:
-            self.name = self.category
+        if not self.name and self.category :
+            self.name = dict(self.CATEGORY_CHOICES)
         super().save(*args, **kwargs)
     
     def __str__(self):

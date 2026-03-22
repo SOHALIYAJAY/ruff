@@ -33,7 +33,8 @@ export default function DashboardSidebar() {
       return []
     }
 
-    const userRole = user.User_Role || user.role || 'Civic-User'
+    const rawRole = user.User_Role || user.role || 'Civic-User'
+    const userRole = (typeof rawRole === 'string' && rawRole.toLowerCase().includes('officer')) ? 'Officer' : rawRole
 
     switch (userRole) {
       case 'Civic-User':

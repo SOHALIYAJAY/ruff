@@ -1,379 +1,146 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts'
-import { TrendingUp, Users, FileText, Clock, CheckCircle2, Activity, AlertTriangle, Calendar, Target, Award, RefreshCw, Eye } from 'lucide-react'
-import Link from 'next/link'
-import api, { apiGet } from '@/lib/api'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, PieChart, Pie, Cell, Legend
+} from 'recharts'
+import {
+  TrendingUp, Users, FileText, Clock, CheckCircle2, Activity,
+  AlertTriangle, RefreshCw, Building2
+} from 'lucide-react'
 import StatsCard from '@/components/ui/stats-card'
 
-interface KPIData {
-  total_comp: number
-  resolved_comp: number
-  Pending_comp: number
-  inprogress_comp: number
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+
+function getToken() {
+  const t = localStorage.getItem('adminToken') || localStorage.getItem('access_token')
+  return t && t !== 'undefined' && t !== 'null' ? t : null
 }
 
-interface MonthlyData {
-  month: string
-  month_number: number
-  complaints: number
-  density: number
+async function apiFetch(path: string) {
+  const token = getToken()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (!res.ok) throw new Error(`${path} → ${res.status}`)
+  return res.json()
 }
 
-interface DensityResponse {
-  monthly_data: MonthlyData[]
-  density_data: MonthlyData[]
-  year: number
-  total_complaints: number
+const STATUS_COLORS: Record<string, string> = {
+  resolved: 'bg-green-100 text-green-800',
+  pending: 'bg-yellow-100 text-yellow-800',
+  'in-progress': 'bg-blue-100 text-blue-800',
 }
-
-interface RoleData {
-  name: string
-  value: number
-  color: string
+const PRIORITY_COLORS: Record<string, string> = {
+  high: 'bg-red-100 text-red-800',
+  medium: 'bg-orange-100 text-orange-800',
+  low: 'bg-green-100 text-green-800',
 }
+const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444']
 
-interface RecentComplaint {
-  id: number
-  title: string
-  description: string
-  status: string
-  priority_level: string
-  location_District: string
-  created_at: string
-}
-
-interface StatCardProps {
-  title: string
-  value: string
-  icon: React.ReactNode
-  color: string
-  borderColor: string
-  loading?: boolean
-}
-
-interface ChartCardProps {
-  title: string
-  subtitle?: string
-  children: React.ReactNode
-  className?: string
-  loading?: boolean
-}
-
-// Format date properly
-const formatDate = (dateString: string | null | undefined) => {
-  if (!dateString) return 'Unknown'
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return dateString
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  } catch {
-    return dateString || 'Unknown'
-  }
+function ChartCard({ title, subtitle, children, loading }: {
+  title: string; subtitle?: string; children: React.ReactNode; loading?: boolean
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+      </div>
+      {loading ? (
+        <div className="h-64 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        </div>
+      ) : children}
+    </div>
+  )
 }
 
 export default function AdminDashboard() {
-  const [kpiData, setKpiData] = useState<KPIData>({
-    total_comp: 0,
-    resolved_comp: 0,
-    Pending_comp: 0,
-    inprogress_comp: 0
-  })
-  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
-  const [roleData, setRoleData] = useState<RoleData[]>([])
-  const [recentComplaints, setRecentComplaints] = useState<RecentComplaint[]>([])
-  const [latestCivicUsers, setLatestCivicUsers] = useState<any[]>([])
-  const [latestDepartmentUsers, setLatestDepartmentUsers] = useState<any[]>([])
+  const [kpi, setKpi] = useState({ total: 0, resolved: 0, pending: 0, inprogress: 0 })
+  const [monthly, setMonthly] = useState<{ month: string; complaints: number }[]>([])
+  const [roles, setRoles] = useState<{ name: string; value: number; color: string }[]>([])
+  const [recent, setRecent] = useState<any[]>([])
+  const [civicUsers, setCivicUsers] = useState<any[]>([])
+  const [deptUsers, setDeptUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
-  const [mounted, setMounted] = useState(false)
-  const POLL_INTERVAL_MS = 15000 // 15 seconds
+  const [lastUpdated, setLastUpdated] = useState('')
 
-  const fetchData = async () => {
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      setLoading(true)
-      setError(null)
-
-      // Fetch dashboard cards data
-      const kpiResult = await apiGet('/api/admindashboardcard/')
-      
-      const totalComplaints = kpiResult.total_complaints || kpiResult.total_comp || 0
-      const resolvedComplaints = kpiResult.resolved_complaints || kpiResult.resolved_comp || 0
-      const pendingComplaints = kpiResult.pending_complaints || kpiResult.Pending_comp || 0
-      const inprogressComplaints = kpiResult.inprogress_complaints || kpiResult.inprogress_comp || 0
-      
-      setKpiData({
-        total_comp: totalComplaints,
-        resolved_comp: resolvedComplaints,
-        Pending_comp: pendingComplaints,
-        inprogress_comp: inprogressComplaints
+      // 1. KPI cards
+      const kpiData = await apiFetch('/api/admindashboardcard/')
+      setKpi({
+        total: kpiData.total_complaints ?? kpiData.total_comp ?? 0,
+        resolved: kpiData.resolved_complaints ?? kpiData.resolved_comp ?? 0,
+        pending: kpiData.pending_complaints ?? kpiData.Pending_comp ?? 0,
+        inprogress: kpiData.inprogress_complaints ?? kpiData.inprogress_comp ?? 0,
       })
 
-      // Fetch complaint trends data
-      const trendsResult = await apiGet('/api/complaint-status-trends/')
-      
-      // Handle new response structure with actual complaint data
-      let transformedTrendsData: MonthlyData[] = []
-      
-      if (trendsResult && trendsResult.monthly_data) {
-        // Use actual complaint counts for visualization
-        transformedTrendsData = trendsResult.monthly_data.map((item: any) => ({
-          month: item.month || 'Unknown',
-          month_number: item.month_number || 1,
-          complaints: item.complaints || 0,
-          density: item.complaints || 0  // Use actual complaint count as density
-        }))
-      } else if (Array.isArray(trendsResult)) {
-        // Fallback to old format
-        transformedTrendsData = trendsResult.map((item: any) => ({
-          month: item.month || 'Unknown',
-          month_number: item.month_number || 1,
-          complaints: item.complaints || 0,
-          density: item.complaints || 0  // Use actual complaint count as density
-        }))
-      }
-      
-      setMonthlyData(transformedTrendsData)
+      // 2. Monthly complaint trends (last 12 months)
+      const trendsData = await apiFetch('/api/complaint-status-trends/')
+      const rawMonthly: any[] = trendsData?.monthly_data ?? (Array.isArray(trendsData) ? trendsData : [])
+      setMonthly(rawMonthly.map((d: any) => ({
+        month: d.month ?? '',
+        complaints: Number(d.complaints ?? 0),
+      })))
 
-      // Fetch user role distribution
-      const roleResult = await apiGet('/api/user-role-distribution/')
-      
-      console.log('Role distribution API response:', roleResult)
-      
-      // Use real API response data
-      const transformedRoleData = [
-        { name: 'Regular Users', value: roleResult?.regular_users || 0, color: 'hsl(var(--sidebar-primary))' },
-        { name: 'Officers', value: roleResult?.officers || 0, color: '#10B981' },
-        { name: 'Admins', value: roleResult?.admins || 0, color: '#F59E0B' }
-      ]
-      
-      console.log('Transformed role data:', transformedRoleData)
-      console.log('Role data values:', transformedRoleData.map(r => `${r.name}: ${r.value}`))
-      console.log('Any role with value > 0?', transformedRoleData.some(r => r.value > 0))
-      
-      setRoleData(transformedRoleData)
+      // 3. User role distribution
+      const roleData = await apiFetch('/api/user-role-distribution/')
+      setRoles([
+        { name: 'Civic Users',      value: roleData.regular_users ?? 0, color: PIE_COLORS[0] },
+        { name: 'Officers',         value: roleData.officers ?? 0,       color: PIE_COLORS[1] },
+        { name: 'Admins',           value: roleData.admins ?? 0,         color: PIE_COLORS[2] },
+      ].filter(r => r.value > 0))
 
-      // Fetch recent complaints
-      const recentResult = await apiGet('/api/recent-complaints-admin/')
-      
-      const transformedRecentData = Array.isArray(recentResult.data) 
-        ? recentResult.data.slice(0, 4).map((item: any) => ({
-            id: item.id || 0,
-            title: item.title || 'Untitled Complaint',
-            description: item.Description || 'No description available',
-            status: item.status || 'Unknown',
-            priority_level: item.priority_level || 'Medium',
-            location_District: item.location_District || 'Unknown',
-            created_at: item.current_time || new Date().toISOString()
-          }))
-        : []
-      
-      setRecentComplaints(transformedRecentData)
+      // 4. Recent complaints
+      const recentData = await apiFetch('/api/recent-complaints-admin/')
+      const list: any[] = Array.isArray(recentData.data) ? recentData.data : []
+      setRecent(list.slice(0, 6).map((c: any) => ({
+        id: c.id,
+        title: c.title ?? 'Untitled',
+        description: c.Description ?? '',
+        status: c.status ?? 'Pending',
+        priority: c.priority_level ?? 'Medium',
+        district: c.location_District ?? '—',
+        date: c.current_time ? new Date(c.current_time).toLocaleDateString() : '—',
+      })))
 
-      // Fetch latest users and split by role (Civic-User, Department-User)
-      try {
-        const usersResult = await apiGet('/api/users/')
-        let usersList: any[] = []
-        if (Array.isArray(usersResult)) usersList = usersResult
-        else if (usersResult.results) usersList = usersResult.results
-        else if (usersResult.data) usersList = usersResult.data
-
-        // Sort by created_at / date fields if available (fallback to id desc)
-        usersList.sort((a: any, b: any) => {
-          const ta = new Date(a.date_joined || a.created_at || a.current_time || 0).getTime() || (b.id ? b.id - a.id : 0)
-          const tb = new Date(b.date_joined || b.created_at || b.current_time || 0).getTime() || (b.id ? b.id - a.id : 0)
-          return tb - ta
-        })
-
-        const civic = usersList.filter(u => (u.role || '').toString().toLowerCase().includes('civic'))
-        const dept = usersList.filter(u => (u.role || '').toString().toLowerCase().includes('department'))
-
-        setLatestCivicUsers(civic.slice(0, 3))
-        setLatestDepartmentUsers(dept.slice(0, 3))
-      } catch (err) {
-        console.warn('Failed to fetch latest users for dashboard', err)
-        setLatestCivicUsers([])
-        setLatestDepartmentUsers([])
-      }
+      // 5. Latest users split by role
+      const usersData = await apiFetch('/api/users/')
+      const allUsers: any[] = usersData.results ?? usersData.data ?? (Array.isArray(usersData) ? usersData : [])
+      allUsers.sort((a: any, b: any) => {
+        const ta = new Date(a.date_joined ?? a.created_at ?? 0).getTime()
+        const tb = new Date(b.date_joined ?? b.created_at ?? 0).getTime()
+        return tb - ta
+      })
+      setCivicUsers(allUsers.filter((u: any) => (u.role ?? '').toLowerCase().includes('civic')).slice(0, 4))
+      setDeptUsers(allUsers.filter((u: any) => (u.role ?? '').toLowerCase().includes('department')).slice(0, 4))
 
       setLastUpdated(new Date().toLocaleTimeString())
-      setMounted(true)
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-      setError('Failed to load dashboard data')
-      
-      // Set empty data to prevent chart errors
-      setMonthlyData([])
-      setRoleData([])
-      setRecentComplaints([])
+    } catch (e: any) {
+      console.error('Dashboard fetch error:', e)
+      setError(e.message ?? 'Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchData()
   }, [])
 
-  // Poll the dashboard endpoint periodically so charts update even if BroadcastChannel
-  // is not supported or messages are missed.
-  useEffect(() => {
-    let interval: number | undefined
-    try {
-      interval = window.setInterval(() => {
-        fetchData()
-      }, POLL_INTERVAL_MS)
-    } catch (err) {
-      console.warn('Polling not available:', err)
-    }
+  useEffect(() => { fetchAll() }, [fetchAll])
 
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [])
-
-  // Listen for cross-tab notifications about new complaints and refresh data
+  // BroadcastChannel: refresh when a new complaint is submitted
   useEffect(() => {
     let bc: BroadcastChannel | null = null
     try {
       bc = new BroadcastChannel('complaints')
-      bc.onmessage = (ev) => {
-        if (ev?.data?.type === 'new-complaint') {
-          fetchData()
-        }
-      }
-    } catch (err) {
-      console.warn('BroadcastChannel not available:', err)
-    }
-
-    return () => {
-      try {
-        if (bc) bc.close()
-      } catch {}
-    }
-  }, [])
-
-  // compute maxima and layout helpers for charts
-  const maxComplaints = monthlyData.length > 0 ? Math.max(...monthlyData.map(d => Number(d.complaints || 0))) : 0
-  const chartYAxisMax = Math.max(Math.ceil(maxComplaints * 1.2), 5) // at least 5 for visibility
-
-  // Generate KDE data from actual monthly complaint data
-  const generateKDEData = () => {
-    if (monthlyData.length === 0) return []
-    
-    // Extract actual complaint counts and months from database
-    const actualData = monthlyData.map(d => ({
-      month: d.month || '',
-      complaints: Number(d.complaints || 0)
-    }))
-    
-    // Create smooth KDE curve that follows actual data
-    const kdePoints = []
-    const numPoints = 100
-    
-    for (let i = 0; i <= numPoints; i++) {
-      const position = i / numPoints // 0 to 1
-      
-      // Find position in actual data
-      const dataPosition = position * (actualData.length - 1)
-      const index = Math.floor(dataPosition)
-      const fraction = dataPosition - index
-      
-      // Get surrounding actual values
-      const value1 = actualData[index]?.complaints || 0
-      const value2 = actualData[Math.min(index + 1, actualData.length - 1)]?.complaints || 0
-      
-      // Linear interpolation with smoothing
-      let smoothedValue = value1 + (value2 - value1) * fraction
-      
-      // Add some smoothing based on nearby points
-      const smoothingWindow = 2
-      let weightedSum = 0
-      let totalWeight = 0
-      
-      for (let j = -smoothingWindow; j <= smoothingWindow; j++) {
-        const sampleIndex = index + j
-        if (sampleIndex >= 0 && sampleIndex < actualData.length) {
-          const distance = Math.abs(j)
-          const weight = Math.exp(-(distance * distance) / (2 * smoothingWindow * smoothingWindow))
-          weightedSum += actualData[sampleIndex].complaints * weight
-          totalWeight += weight
-        }
-      }
-      
-      if (totalWeight > 0) {
-        smoothedValue = weightedSum / totalWeight
-      }
-      
-      // Get month label for this position
-      const monthIndex = Math.floor(position * (actualData.length - 1))
-      const monthLabel = actualData[monthIndex]?.month || ''
-      
-      kdePoints.push({
-        month: monthLabel,
-        value: Math.max(0, smoothedValue),
-        original: actualData[monthIndex]?.complaints || 0
-      })
-    }
-    
-    return kdePoints
-  }
-
-  const kdeData = generateKDEData()
-
-  const formatNumber = (num: number | undefined | null) => {
-    if (num === undefined || num === null || isNaN(num)) {
-      return '0'
-    }
-    return num.toLocaleString()
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'resolved':
-        return 'bg-green-100 text-green-800'
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'in-progress':
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-800'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case 'high':
-        return 'bg-red-100 text-red-800'
-      case 'medium':
-        return 'bg-orange-100 text-orange-800'
-      case 'low':
-        return 'bg-sidebar-primary text-sidebar-primary-foreground'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, className, loading }) => (
-    <div className={`bg-white rounded-xl border border-gray-200 p-6 ${className}`}>
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
-      </div>
-      {loading ? (
-        <div className="h-64 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-sidebar-primary/20 border-t-sidebar-primary rounded-full animate-spin"></div>
-        </div>
-      ) : (
-        children
-      )}
-    </div>
-  )
+      bc.onmessage = (ev) => { if (ev?.data?.type === 'new-complaint') fetchAll() }
+    } catch {}
+    return () => { try { bc?.close() } catch {} }
+  }, [fetchAll])
 
   if (error) {
     return (
@@ -381,13 +148,12 @@ export default function AdminDashboard() {
         <div className="text-center max-w-md">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Dashboard Error</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-gray-600 mb-6 text-sm">{error}</p>
           <button
-            onClick={fetchData}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-sidebar-primary text-sidebar-primary-foreground rounded-lg hover:bg-sidebar-primary/90 transition-colors"
+            onClick={fetchAll}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            <RefreshCw className="w-4 h-4" />
-            Retry
+            <RefreshCw className="w-4 h-4" /> Retry
           </button>
         </div>
       </div>
@@ -396,203 +162,159 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
+
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span>Real-time monitoring</span>
-            <span>•</span>
-            <span>Last updated: {lastUpdated}</span>
-            <button
-              onClick={fetchData}
-              className="flex items-center gap-1 px-2 py-1 text-sidebar-primary hover:bg-sidebar-primary/10 rounded transition-colors"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Refresh
-            </button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Last updated: {lastUpdated || '—'}
+            </p>
           </div>
+          <button
+            onClick={fetchAll}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             title="Total Complaints"
-            value={formatNumber(kpiData.total_comp || 0)}
-            icon={<FileText className="w-6 h-6 text-sidebar-primary" />}
-            color="text-sidebar-primary"
-            borderColor="border-sidebar-primary/20"
+            value={kpi.total.toLocaleString()}
+            icon={<FileText className="w-6 h-6" />}
+            color="text-indigo-600"
+            bgColor="bg-indigo-50"
+            borderColor="border-indigo-200"
             loading={loading}
           />
           <StatsCard
             title="Resolved"
-            value={formatNumber(kpiData.resolved_comp || 0)}
-            icon={<CheckCircle2 className="w-6 h-6 text-green-600" />}
+            value={kpi.resolved.toLocaleString()}
+            icon={<CheckCircle2 className="w-6 h-6" />}
             color="text-green-600"
+            bgColor="bg-green-50"
             borderColor="border-green-200"
             loading={loading}
           />
           <StatsCard
             title="Pending"
-            value={formatNumber(kpiData.Pending_comp || 0)}
-            icon={<Clock className="w-6 h-6 text-yellow-600" />}
+            value={kpi.pending.toLocaleString()}
+            icon={<Clock className="w-6 h-6" />}
             color="text-yellow-600"
+            bgColor="bg-yellow-50"
             borderColor="border-yellow-200"
             loading={loading}
           />
           <StatsCard
             title="In Progress"
-            value={formatNumber(kpiData.inprogress_comp || 0)}
-            icon={<Activity className="w-6 h-6 text-orange-600" />}
+            value={kpi.inprogress.toLocaleString()}
+            icon={<Activity className="w-6 h-6" />}
             color="text-orange-600"
+            bgColor="bg-orange-50"
             borderColor="border-orange-200"
             loading={loading}
           />
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <ChartCard
-            title="Complaint Trends (KDE Plot)"
-            subtitle="Smooth density visualization of monthly complaint data"
-            loading={loading}
-          >
-            {monthlyData.length > 0 ? (
-              <>
-                {/* Debug: Show data structure */}
-                <div className="text-xs text-gray-500 mb-2">
-                  Debug KDE: {JSON.stringify(kdeData.slice(0, 2))} | Monthly: {JSON.stringify(monthlyData.slice(0, 2))} | Total: {monthlyData.length} months
-                </div>
-                <ResponsiveContainer width="100%" height={450}>
-                <AreaChart data={kdeData} margin={{ top: 20, right: 30, left: 60, bottom: 80 }}>
-                  <defs>
-                    <linearGradient id="kdeGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--sidebar-primary))" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="hsl(var(--sidebar-primary))" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" strokeOpacity={0.3} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fill: '#6B7280', fontSize: 11 }}
-                    axisLine={{ stroke: '#E5E7EB' }}
-                    tickLine={false}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                  />
-                  <YAxis
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
-                    axisLine={{ stroke: '#E5E7EB' }}
-                    tickLine={{ stroke: '#E5E7EB' }}
-                    domain={[0, chartYAxisMax]}
-                    allowDecimals={false}
-                    label={{ value: 'Number of Complaints', angle: -90, position: 'insideLeft', style: { fill: '#6B7280', fontSize: 12 } }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                      padding: '12px'
-                    }}
-                    labelStyle={{ color: '#111827', fontWeight: 600, marginBottom: '4px' }}
-                    formatter={(value: any, name: any, props: any) => {
-                      const originalValue = props.payload?.original || 0
-                      return [
-                        <div style={{ color: 'hsl(var(--sidebar-primary))', fontWeight: 600, fontSize: '14px' }}>
-                          {originalValue} Complaints
-                        </div>,
-                        <div style={{ color: '#6B7280', fontSize: '12px', marginTop: '4px' }}>
-                          Month: {props.payload?.month || ''}
-                        </div>
-                      ]
-                    }}
-                    cursor={{ fill: 'hsl(var(--sidebar-primary))', fillOpacity: 0.06 }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="hsl(var(--sidebar-primary))" 
-                    strokeWidth={2}
-                    fill="url(#kdeGradient)" 
-                    animationDuration={800}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-              </>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm">No complaint data available</p>
-                  <p className="text-xs text-gray-400 mt-1">Database connection required</p>
-                </div>
-              </div>
-            )}
-          </ChartCard>
+        {/* Charts Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
+          {/* Monthly Trends — takes 2/3 width */}
+          <div className="lg:col-span-2">
+            <ChartCard
+              title="Monthly Complaint Trends"
+              subtitle="Number of complaints filed per month (last 12 months)"
+              loading={loading}
+            >
+              {monthly.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={monthly} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
+                    <defs>
+                      <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      angle={-40}
+                      textAnchor="end"
+                      height={70}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
+                      formatter={(v: any) => [`${v} complaints`, 'Count']}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="complaints"
+                      stroke="#6366f1"
+                      strokeWidth={2.5}
+                      fill="url(#areaGrad)"
+                      dot={{ r: 3, fill: '#6366f1' }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+                  <Activity className="w-10 h-10 mb-2 text-gray-300" />
+                  <p className="text-sm">No complaint data available yet</p>
+                </div>
+              )}
+            </ChartCard>
+          </div>
+
+          {/* User Role Distribution — takes 1/3 width */}
           <ChartCard
             title="User Distribution"
-            subtitle="Users by role"
+            subtitle="Breakdown by role"
             loading={loading}
           >
-            {roleData && roleData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={400}>
+            {roles.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <defs>
-                    <linearGradient id="userGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                      <stop offset="100%" stopColor="hsl(var(--sidebar-primary))" stopOpacity={1}/>
-                    </linearGradient>
-                  </defs>
                   <Pie
-                    data={roleData}
+                    data={roles}
                     cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    cy="45%"
                     outerRadius={90}
-                    fill="#8884d8"
                     dataKey="value"
-                    animationBegin={0}
-                    animationDuration={800}
+                    label={({ name, percent }) =>
+                      `${name}: ${(percent * 100).toFixed(0)}%`
+                    }
+                    labelLine={false}
                   >
-                    {roleData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {roles.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                    formatter={(value: any, name: any) => [
-                      `${name}: ${value}`,
-                      `${((roleData.find((r: any) => r.name === name)?.value || 0) / (roleData.reduce((sum: number, r: any) => sum + r.value, 0)) * 100).toFixed(1)}%`
-                    ]}
+                  <Tooltip
+                    contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', fontSize: 13 }}
+                    formatter={(v: any, name: any) => [`${v} users`, name]}
                   />
+                  <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2C6.48 2 2 0 0-2.84 0-2.84C6.48 2v2" stroke="currentColor" strokeWidth="2"/>
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">No User Role Data Available</h3>
-                  <p className="text-gray-600 mb-4">No users found in the system with the specified roles.</p>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p>• Check if users exist in the database</p>
-                    <p>• Verify user roles are properly assigned (Civic-User, Department-User, Admin-User)</p>
-                    <p>• Ensure the API endpoint is accessible</p>
-                  </div>
-                </div>
+              <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+                <Users className="w-10 h-10 mb-2 text-gray-300" />
+                <p className="text-sm">No users registered yet</p>
               </div>
             )}
           </ChartCard>
@@ -601,79 +323,105 @@ export default function AdminDashboard() {
         {/* Recent Complaints */}
         <ChartCard
           title="Recent Complaints"
-          subtitle="Latest filed complaints"
+          subtitle="Latest 6 complaints filed in the system"
           loading={loading}
         >
-          <div className="space-y-3">
-            {recentComplaints.length > 0 ? (
-              recentComplaints.map((complaint) => (
-                <div key={complaint.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{complaint.title}</h4>
-                    <p className="text-sm text-gray-600 truncate">{complaint.description}</p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <span className="text-xs text-gray-500">{complaint.location_District}</span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(complaint.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(complaint.priority_level)}`}>
-                      {complaint.priority_level}
-                    </span>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(complaint.status)}`}>
-                      {complaint.status}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                No recent complaints found
-              </div>
-            )}
-          </div>
+          {recent.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">District</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Priority</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                    <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recent.map((c) => (
+                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-3">
+                        <p className="font-medium text-gray-900 truncate max-w-[200px]">{c.title}</p>
+                        <p className="text-xs text-gray-400 truncate max-w-[200px]">{c.description}</p>
+                      </td>
+                      <td className="py-3 px-3 text-gray-600">{c.district}</td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_COLORS[c.priority.toLowerCase()] ?? 'bg-gray-100 text-gray-700'}`}>
+                          {c.priority}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[c.status.toLowerCase()] ?? 'bg-gray-100 text-gray-700'}`}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-gray-500 text-xs">{c.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-gray-400 text-sm">
+              No complaints found
+            </div>
+          )}
         </ChartCard>
 
-        {/* Latest Registered Users */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <ChartCard title="Latest Civic Users" subtitle="Most recently registered civic users" loading={loading}>
-            <div className="space-y-3">
-              {latestCivicUsers.length > 0 ? (
-                latestCivicUsers.map((u) => (
-                  <div key={u.id || u.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{u.username || u.first_name || u.name || `User ${u.id}`}</p>
-                      <p className="text-sm text-gray-500">{u.email || 'No email'}</p>
+        {/* Latest Users */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ChartCard title="Latest Civic Users" subtitle="Most recently registered citizens" loading={loading}>
+            {civicUsers.length > 0 ? (
+              <div className="space-y-3">
+                {civicUsers.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">
+                        {(u.username ?? u.email ?? '?')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{u.username ?? u.email}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-400">{formatDate(u.date_joined || u.created_at || u.current_time)}</div>
+                    <span className="text-xs text-gray-400">
+                      {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : '—'}
+                    </span>
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-500 py-6">No civic users found</div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-24 flex items-center justify-center text-gray-400 text-sm">No civic users yet</div>
+            )}
           </ChartCard>
 
-          <ChartCard title="Latest Department Users" subtitle="Most recently registered department users" loading={loading}>
-            <div className="space-y-3">
-              {latestDepartmentUsers.length > 0 ? (
-                latestDepartmentUsers.map((u) => (
-                  <div key={u.id || u.user_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{u.username || u.first_name || u.name || `User ${u.id}`}</p>
-                      <p className="text-sm text-gray-500">{u.email || 'No email'}</p>
+          <ChartCard title="Latest Department Users" subtitle="Most recently registered department staff" loading={loading}>
+            {deptUsers.length > 0 ? (
+              <div className="space-y-3">
+                {deptUsers.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-semibold text-sm">
+                        {(u.username ?? u.email ?? '?')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{u.username ?? u.email}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-400">{formatDate(u.date_joined || u.created_at || u.current_time)}</div>
+                    <span className="text-xs text-gray-400">
+                      {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : '—'}
+                    </span>
                   </div>
-                ))
-              ) : (
-                <div className="text-center text-gray-500 py-6">No department users found</div>
-              )}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-24 flex items-center justify-center text-gray-400 text-sm">No department users yet</div>
+            )}
           </ChartCard>
         </div>
+
       </div>
     </div>
   )

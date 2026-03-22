@@ -46,10 +46,11 @@ export default function AllComplaintsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [assignedOnly, setAssignedOnly] = useState(false)
+  const [assignedOnly, setAssignedOnly] = useState(true) // Default to assigned complaints only
   const [currentPage, setCurrentPage] = useState(1)
   const [categories, setCategories] = useState<string[]>([])
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [totalComplaints, setTotalComplaints] = useState(0)
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
   const itemsPerPage = 10
@@ -71,18 +72,22 @@ export default function AllComplaintsPage() {
         search: searchTerm,
         status: statusFilter,
         priority: priorityFilter,
-        category: categoryFilter
+        category: categoryFilter,
+        page: currentPage.toString(),
+        page_size: itemsPerPage.toString()
       })
 
-      // If assignedOnly is true, hit the officer-specific endpoint which returns complaints
-      // assigned to the logged-in officer. Otherwise, fetch all complaints visible to officer.
-      const endpoint = assignedOnly ? '/api/officer/complaints/' : '/api/officer/all-complaints/'
+      // Always fetch officer-specific complaints
+      const endpoint = '/api/officer/complaints/'
       const response = await fetch(`${API_BASE}${endpoint}?${params}`, { headers })
       
       if (response.ok) {
         const data = await response.json()
         setComplaints(data.complaints || [])
         setCategories(data.categories || [])
+        setTotalComplaints(data.total || 0)
+      } else {
+        console.error('Failed to fetch complaints:', response.statusText)
       }
     } catch (error) {
       console.error('Error fetching complaints:', error)
@@ -93,7 +98,7 @@ export default function AllComplaintsPage() {
 
   useEffect(() => {
     fetchComplaints()
-  }, [searchTerm, statusFilter, priorityFilter, categoryFilter, assignedOnly])
+  }, [searchTerm, statusFilter, priorityFilter, categoryFilter, currentPage])
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -121,19 +126,9 @@ export default function AllComplaintsPage() {
     }
   }
 
-  const filteredComplaints = complaints.filter(complaint => {
-    const matchesSearch = complaint.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.citizenName.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || complaint.status === statusFilter
-    const matchesPriority = priorityFilter === 'all' || complaint.priority === priorityFilter
-    const matchesCategory = categoryFilter === 'all' || complaint.category === categoryFilter
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory
-  })
-
-  const totalPages = Math.ceil(filteredComplaints.length / itemsPerPage)
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const paginatedComplaints = filteredComplaints.slice(startIndex, startIndex + itemsPerPage)
+  const totalPages = Math.ceil(totalComplaints / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage + 1
+  const endIndex = Math.min(startIndex + itemsPerPage - 1, totalComplaints)
 
   return (
     <div className="p-6 space-y-6">
@@ -170,7 +165,10 @@ export default function AllComplaintsPage() {
                 type="text"
                 placeholder="Search by title, description, or citizen name..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value)
+                  setCurrentPage(1)
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sidebar-primary focus:border-sidebar-primary"
               />
             </div>
@@ -178,7 +176,10 @@ export default function AllComplaintsPage() {
           <div className="flex gap-4">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                  setStatusFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sidebar-primary focus:border-sidebar-primary"
             >
               <option value="all">All Status</option>
@@ -197,7 +198,10 @@ export default function AllComplaintsPage() {
             </label>
             <select
               value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
+              onChange={(e) => {
+                  setPriorityFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sidebar-primary focus:border-sidebar-primary"
             >
               <option value="all">All Priority</option>
@@ -207,7 +211,10 @@ export default function AllComplaintsPage() {
             </select>
             <select
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => {
+                  setCategoryFilter(e.target.value)
+                  setCurrentPage(1)
+                }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sidebar-primary focus:border-sidebar-primary"
             >
               <option value="all">All Categories</option>
@@ -223,7 +230,7 @@ export default function AllComplaintsPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">Complaint List</h3>
-          <p className="text-sm text-gray-500">Total: {filteredComplaints.length} complaints</p>
+          <p className="text-sm text-gray-500">Total: {totalComplaints} complaints</p>
         </div>
         
         {loading ? (
@@ -231,7 +238,7 @@ export default function AllComplaintsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sidebar-primary mx-auto"></div>
             <p className="mt-2 text-gray-500">Loading complaints...</p>
           </div>
-        ) : paginatedComplaints.length === 0 ? (
+        ) : complaints.length === 0 ? (
           <div className="p-8 text-center">
             <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-500">No complaints found</p>
@@ -253,7 +260,7 @@ export default function AllComplaintsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {paginatedComplaints.map((complaint) => (
+                  {complaints.map((complaint: Complaint) => (
                     <tr key={complaint.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <span className="text-sm font-medium text-gray-900">#{complaint.id}</span>
@@ -322,7 +329,7 @@ export default function AllComplaintsPage() {
             {totalPages > 1 && (
               <div className="p-4 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-500">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredComplaints.length)} of {filteredComplaints.length} complaints
+                  Showing {totalComplaints > 0 ? startIndex : 0} to {endIndex} of {totalComplaints} complaints
                 </div>
                 <div className="flex items-center gap-2">
                   <button

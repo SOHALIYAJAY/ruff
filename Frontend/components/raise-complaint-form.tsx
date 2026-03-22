@@ -219,11 +219,8 @@ export default function RaiseComplaintForm() {
         status: 'Pending'
       }
 
-      console.log('Submitting data:', submitData)
-
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
       const endpoint = `${API_BASE_URL}/api/raisecomplaint/`
-      console.log('Submitting to endpoint:', endpoint)
 
       // Add retry logic for server errors
       let response: Response | undefined
@@ -283,19 +280,22 @@ export default function RaiseComplaintForm() {
       let data = {}
       try {
         const text = await response.text()
-        console.log('Raw response text:', text)
-        console.log('Response status:', response.status)
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()))
         
         // Check if response is HTML (error page) instead of JSON
         if (text.includes('<!DOCTYPE') || text.includes('<html>')) {
-          console.error('Server returned HTML instead of JSON - likely an error page')
-          console.error('HTML response preview:', text.substring(0, 500))
-          throw new Error(`Server error (${response.status}): Backend returned an error page instead of JSON response`)
+          throw new Error('Server returned HTML error page instead of JSON')
         }
         
-        if (text) {
+        try {
           data = JSON.parse(text)
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError)
+          // If JSON parsing fails and response is not OK, it's likely a server error
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status} ${response.statusText}`)
+          }
+          // If response is OK but JSON parsing failed, it's a format issue
+          throw new Error('Invalid response format from server')
         }
       } catch (jsonError) {
         console.error('Failed to parse response:', jsonError)
@@ -307,17 +307,11 @@ export default function RaiseComplaintForm() {
         throw new Error('Invalid response format from server')
       }
 
-      console.log('Parsed server response:', data)
-
       // Check response status first
       if (!response.ok) {
-        const errorMsg = (data as any).errors 
-          ? Object.entries((data as any).errors).map(([key, val]) => `${key}: ${val}`).join(', ')
-          : (data as any).message || `Server error: ${response.status} ${response.statusText}`
+        const errorMsg = (data as any)?.error || (data as any)?.message || `HTTP ${response.status}: ${response.statusText}`
         throw new Error(errorMsg)
       }
-
-      console.log("Complaint submitted successfully:", data)
       // Do not show in-form banner or alert here; keep UX minimal and avoid duplicate messages
       setSubmitted(true)
       // Show success message in the UI (include server-provided id if available)

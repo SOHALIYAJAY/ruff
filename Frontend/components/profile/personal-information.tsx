@@ -55,7 +55,6 @@ export default function PersonalInformation() {
         setLoading(true)
         const token = localStorage.getItem('access_token')
         if (!token) {
-          console.log('No authentication token found - showing fallback data')
           return
         }
 

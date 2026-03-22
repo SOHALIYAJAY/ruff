@@ -278,104 +278,67 @@ class ComplaintMonthlyStats(APIView):
 
 class DepartmentDashboardStats(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         try:
             complaints = Complaint.objects.all()
-            
-            # Get filter parameters from query string
-            search_query = request.GET.get('search', '')
-            status_filter = request.GET.get('status', '')
-            priority_filter = request.GET.get('priority', '')
-            date_range_filter = request.GET.get('date_range', '')
-            
-            # Apply filters to complaints queryset
-            if search_query:
-                complaints = complaints.filter(
-                    Q(title__icontains=search_query) |
-                    Q(Description__icontains=search_query) |
-                    Q(location_address__icontains=search_query)
-                )
-            
-            if status_filter and status_filter != 'all':
-                complaints = complaints.filter(status=status_filter)
-            
-            if priority_filter and priority_filter != 'all':
-                complaints = complaints.filter(priority_level=priority_filter)
-            
-            # Calculate statistics
+
             total = complaints.count()
             pending = complaints.filter(status='Pending').count()
             in_progress = complaints.filter(status='in-progress').count()
             resolved = complaints.filter(status='resolved').count()
-            
-            # Calculate real performance metrics
-            resolved_complaints = complaints.filter(status='resolved')
-            
-            # For now, use mock performance metrics since we don't have created_at/updated_at fields
-            # In a real implementation, you would add these fields to the Complaint model
-            avg_resolution_time = 3.5  # Mock data in days
-            sla_compliance = 85.2  # Mock percentage
-            officer_workload = 0
-            citizen_satisfaction = 4.3
-            
-            # Calculate officer workload
+
+            # Officer workload
             officers = Officer.objects.all()
+            officer_workload = 0
             if officers.exists():
                 total_assigned = complaints.exclude(officer_id=None).count()
                 officer_workload = round(total_assigned / officers.count(), 1)
-            
-            # Get recent complaints
-            recent = complaints.order_by('-current_time')[:5]
+
+            sla_compliance = round((resolved / total * 100), 1) if total > 0 else 0
+
+            # Monthly counts for current year (all complaints)
+            current_year = timezone.now().year
+            monthly_counts = {}
+            for m in range(1, 13):
+                monthly_counts[m] = complaints.filter(
+                    current_time__year=current_year,
+                    current_time__month=m
+                ).count()
+
+            # Recent complaints
             recent_data = []
-            for comp in recent:
+            for comp in complaints.order_by('-current_time')[:5]:
                 recent_data.append({
                     'id': comp.id,
-                    'title': comp.title,
+                    'title': comp.title or 'Untitled',
                     'description': comp.Description,
                     'status': comp.status,
                     'priority': comp.priority_level,
                     'current_time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
-                    'location_address': comp.location_address,
-                    'Category': str(comp.Category) if comp.Category else ''
+                    'location_address': f"{comp.location_District}, {comp.location_taluk}" if comp.location_taluk else comp.location_District or '',
+                    'Category': comp.Category.name if comp.Category else ''
                 })
-            
-            # Get real recent activity
+
+            # Recent activity
             recent_activity = []
-            
-            # Get recent complaints as activity
-            recent_complaints = complaints.order_by('-current_time')[:3]
-            for comp in recent_complaints:
+            for comp in complaints.order_by('-current_time')[:3]:
                 recent_activity.append({
                     'id': f'comp_{comp.id}',
-                    'type': 'complaint_assigned',
-                    'description': f'Complaint #{comp.id} assigned to officer',
+                    'type': 'complaint',
+                    'description': f'Complaint #{comp.id}: {comp.title or "Untitled"}',
                     'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
                     'officer': comp.officer_id.name if comp.officer_id else 'Unassigned'
                 })
-            
-            # Get recent resolutions as activity
-            recent_resolved = complaints.filter(status='resolved').order_by('-current_time')[:2]
-            for comp in recent_resolved:
-                officer_name = 'Unknown'
-                if comp.officer_id:
-                    try:
-                        officer = Officer.objects.get(officer_id=comp.officer_id)
-                        officer_name = officer.name
-                    except Officer.DoesNotExist:
-                        pass
-                
+            for comp in complaints.filter(status='resolved').order_by('-current_time')[:2]:
                 recent_activity.append({
                     'id': f'resolution_{comp.id}',
                     'type': 'resolution',
                     'description': f'Complaint #{comp.id} resolved',
-                    'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else 'Unknown',
-                    'officer': officer_name
+                    'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
+                    'officer': comp.officer_id.name if comp.officer_id else 'Unknown'
                 })
-            
-            # Sort activity by time (simple string sort for now)
-            recent_activity = recent_activity[:5]
-            
+
             return Response({
                 'stats': {
                     'total': total,
@@ -384,40 +347,21 @@ class DepartmentDashboardStats(APIView):
                     'resolved': resolved
                 },
                 'performance': {
-                    'avgResolutionTime': avg_resolution_time,
+                    'avgResolutionTime': 3.5,
                     'slaCompliance': sla_compliance,
                     'officerWorkload': officer_workload,
-                    'citizenSatisfaction': citizen_satisfaction
+                    'citizenSatisfaction': 4.3
                 },
+                'monthlyCounts': monthly_counts,
                 'recentComplaints': recent_data,
-                'recentActivity': recent_activity
+                'recentActivity': recent_activity[:5]
             })
-            
+
         except Exception as e:
             return Response({
                 'error': str(e),
                 'message': 'Failed to fetch department dashboard data'
             }, status=500)
-    
-    def _get_time_ago(self, date_time):
-        """Convert datetime to 'X hours/days ago' format"""
-        if not date_time:
-            return 'Unknown'
-        
-        from datetime import datetime
-        now = datetime.now(date_time.tzinfo) if date_time.tzinfo else datetime.now()
-        diff = now - date_time
-        
-        if diff.days > 0:
-            return f'{diff.days} day{"s" if diff.days > 1 else ""} ago'
-        elif diff.seconds > 3600:
-            hours = diff.seconds // 3600
-            return f'{hours} hour{"s" if hours > 1 else ""} ago'
-        elif diff.seconds > 60:
-            minutes = diff.seconds // 60
-            return f'{minutes} minute{"s" if minutes > 1 else ""} ago'
-        else:
-            return 'Just now'
 
 
 class deptinfo(ListAPIView):
@@ -649,6 +593,113 @@ class assigncomp(APIView):
 class crateofficer(CreateAPIView):
     queryset = Officer.objects.all()
     serializer_class = OfficerSerializer
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create both:
+        - departments.Officer (assignment/work profile)
+        - accounts.CustomUser with role='Officer' (login account)
+        """
+        from django.db import IntegrityError, transaction
+
+        officer_id = request.data.get('officer_id')
+        name = request.data.get('name')
+        email = request.data.get('email')
+        phone = request.data.get('phone')
+        is_available = request.data.get('is_available', True)
+        password = request.data.get('password')
+
+        if not officer_id or not name or not email or phone is None or password is None:
+            return Response(
+                {'success': False, 'error': 'officer_id, name, email, phone, and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        officer_id = str(officer_id).strip()
+        if len(officer_id) > 10:
+            return Response(
+                {'success': False, 'error': 'officer_id must be <= 10 characters'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = str(email).strip().lower()
+        phone = str(phone).strip()
+
+        # Split full name into first/last for the auth user fields.
+        name_parts = str(name).strip().split(' ', 1)
+        first_name = name_parts[0] if name_parts else ''
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+        with transaction.atomic():
+            try:
+                user = CustomUser.objects.filter(email=email).first()
+
+                if user:
+                    # Update existing officer login user
+                    username = email.split('@')[0]
+                    if not CustomUser.objects.filter(username=username).exclude(id=user.id).exists():
+                        user.username = username
+                    user.first_name = first_name
+                    user.last_name = last_name
+                    user.mobile_number = phone
+                    user.User_Role = 'Officer'
+                    user.is_active = True
+                    user.set_password(password)
+                    user.save()
+                else:
+                    username = email.split('@')[0]
+                    user = CustomUser.objects.create_user(
+                        username=username,
+                        email=email,
+                        password=password,
+                        first_name=first_name,
+                        last_name=last_name,
+                        User_Role='Officer',
+                        mobile_number=phone,
+                        is_active=True,
+                    )
+
+                officer, created = Officer.objects.get_or_create(
+                    officer_id=officer_id,
+                    defaults={
+                        'name': str(name).strip(),
+                        'email': email,
+                        'phone': phone,
+                        'is_available': bool(is_available),
+                    }
+                )
+                if not created:
+                    officer.name = str(name).strip()
+                    officer.email = email
+                    officer.phone = phone
+                    officer.is_available = bool(is_available)
+                    officer.save()
+
+                return Response(
+                    {
+                        'success': True,
+                        'data': {
+                            'officer': self.get_serializer(officer).data,
+                            'user': {
+                                'id': user.id,
+                                'email': user.email,
+                                'role': user.User_Role,
+                            }
+                        },
+                        'message': 'Officer created successfully'
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            except IntegrityError as e:
+                return Response(
+                    {'success': False, 'error': f'Integrity error: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                return Response(
+                    {'success': False, 'error': str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
 
 class CategoriesList(APIView):
@@ -1061,6 +1112,14 @@ class OfficerDelete(APIView):
         try:
             from departments.models import Officer
             officer = Officer.objects.get(officer_id=pk)
+            # Best-effort: delete linked officer login account too.
+            # Linking is done by email (officer portal resolver also falls back to email).
+            try:
+                officer_email = officer.email
+                CustomUser.objects.filter(email=officer_email, User_Role='Officer').delete()
+            except Exception:
+                pass
+
             officer.delete()
             return Response({
                 'success': True,
@@ -1082,6 +1141,8 @@ class OfficerUpdate(APIView):
         try:
             from departments.models import Officer
             officer = Officer.objects.get(officer_id=pk)
+
+            old_email = officer.email
             
             # Update fields
             officer.name = request.data.get('name', officer.name)
@@ -1090,6 +1151,30 @@ class OfficerUpdate(APIView):
             officer.is_available = request.data.get('is_available', officer.is_available)
             
             officer.save()
+
+            # Keep the login user in sync (if one exists for this officer).
+            try:
+                user = CustomUser.objects.filter(email=old_email, User_Role='Officer').first()
+                if user:
+                    # Update email/phone/name on the auth user
+                    user.email = officer.email
+                    user.mobile_number = officer.phone
+
+                    name_parts = str(officer.name).strip().split(' ', 1)
+                    user.first_name = name_parts[0] if name_parts else ''
+                    user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+                    # Update username to match email prefix, but avoid unique collisions.
+                    next_username = officer.email.split('@')[0]
+                    if not CustomUser.objects.filter(username=next_username).exclude(id=user.id).exists():
+                        user.username = next_username
+
+                    user.User_Role = 'Officer'
+                    user.is_active = True
+                    user.save()
+            except Exception:
+                # Don't fail officer update if user sync fails.
+                pass
             
             return Response({
                 'success': True,
@@ -1673,44 +1758,98 @@ class DepartmentUploadImage(APIView):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def department_complaints(request):
-    """Get complaints for the current department user"""
+    """Get complaints for current department user"""
     try:
-        # Get the current user
+        # Get current user
         user = request.user
+        
+        # Get the actual department the user belongs to (same logic as dashboard)
+        department_name = None
+        try:
+            from departments.models import Department
+            
+            print(f"DEBUG COMPLAINTS: Checking department for user {user.username}")
+            print(f"DEBUG COMPLAINTS: User_Role = {getattr(user, 'User_Role', 'NOT_FOUND')}")
+            
+            # Check if user is a department head
+            if hasattr(user, 'headed_department') and user.headed_department.exists():
+                department = user.headed_department.first()
+                department_name = department.name
+                print(f"DEBUG COMPLAINTS: User is department head, department = {department_name}")
+            # Check if user is a department officer
+            elif hasattr(user, 'departments') and user.departments.exists():
+                department = user.departments.first()
+                department_name = department.name
+                print(f"DEBUG COMPLAINTS: User is department officer, department = {department_name}")
+            # Fallback: try to get department from User_Role for backward compatibility
+            elif hasattr(user, 'User_Role') and user.User_Role:
+                user_role_str = str(user.User_Role)
+                print(f"DEBUG COMPLAINTS: Using User_Role fallback: {user_role_str}")
+                if '-User' in user_role_str:
+                    # Try to find department by category code
+                    dept_code = user_role_str.replace('-User', '')
+                    print(f"DEBUG COMPLAINTS: Looking for department with code: {dept_code}")
+                    department = Department.objects.filter(category=dept_code).first()
+                    if department:
+                        department_name = department.name
+                        print(f"DEBUG COMPLAINTS: Found department by code: {department_name}")
+                    else:
+                        department_name = dept_code
+                        print(f"DEBUG COMPLAINTS: Using dept_code as department_name: {department_name}")
+                else:
+                    department_name = user_role_str
+                    print(f"DEBUG COMPLAINTS: Using user_role_str as department_name: {department_name}")
+            
+        except Exception as e:
+            print(f"DEBUG COMPLAINTS: Error determining department for user {user.username}: {e}")
+            department_name = None
+        
+        print(f"DEBUG COMPLAINTS: Final department_name = {department_name}")
+        
+        if not department_name:
+            return Response({
+                'error': 'Unable to determine department for this user',
+                'message': 'Department information not found'
+            }, status=400)
         
         # Get complaints based on user role
         if user.User_Role == 'Department-User':
             # For department users, get complaints assigned to their department
+            print(f"DEBUG COMPLAINTS: Filtering complaints for department: {department_name}")
             complaints = Complaint.objects.filter(
-                Category__department=user.department
+                Category__department=department_name
             ).values(
-                'id', 'title', 'Category__category_name', 'Description', 
+                'id', 'title', 'Category__name', 'Description', 
                 'Category', 'location_District', 'location_address',
                 'priority_level', 'status', 'current_time',
                 'assigned_to', 'assigned_to__username'
             ).order_by('-current_time')
+            print(f"DEBUG COMPLAINTS: Found {complaints.count()} complaints for department {department_name}")
         elif user.User_Role == 'Admin-User':
             # For admin users, get all complaints
+            print(f"DEBUG COMPLAINTS: Admin user - getting all complaints")
             complaints = Complaint.objects.all().values(
-                'id', 'title', 'Category__category_name', 'Description', 
+                'id', 'title', 'Category__name', 'Description', 
                 'Category', 'location_District', 'location_address',
                 'priority_level', 'status', 'current_time',
                 'assigned_to', 'assigned_to__username'
             ).order_by('-current_time')
+            print(f"DEBUG COMPLAINTS: Found {complaints.count()} total complaints for admin")
         else:
             # For other users, return empty or unauthorized
+            print(f"DEBUG COMPLAINTS: Unauthorized access for user role: {user.User_Role}")
             return Response({
                 'error': 'Unauthorized access',
                 'message': 'You do not have permission to view complaints'
             }, status=403)
         
-        # Transform the data to match frontend expectations
+        # Transform data to match frontend expectations
         transformed_complaints = []
         for complaint in complaints:
             transformed_complaints.append({
                 'id': complaint['id'],
                 'title': complaint['title'],
-                'category': complaint['Category__category_name'] or complaint['Category'],
+                'category': complaint['Category__name'] or complaint['Category'],
                 'description': complaint['Description'],
                 'location': complaint['location_address'] or complaint['location_District'],
                 'priority': complaint['priority_level'],
