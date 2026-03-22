@@ -17,7 +17,7 @@ interface Notification {
 export default function NotificationsPanel() {
   const notifications: Notification[] = [
     {
-      id: 1,
+      id: '1',
       title: 'Complaint Assigned',
       message: 'CMP-2024-001 has been assigned to Officer Sharma',
       type: 'assigned',
@@ -28,7 +28,7 @@ export default function NotificationsPanel() {
       borderColor: 'border-orange-500/20',
     },
     {
-      id: 2,
+      id: '2',
       title: 'Complaint Resolved',
       message: 'CMP-2024-003 has been successfully resolved',
       type: 'resolved',
@@ -39,7 +39,7 @@ export default function NotificationsPanel() {
       borderColor: 'border-green-500/20',
     },
     {
-      id: 3,
+      id: '3',
       title: 'Escalation Alert',
       message: 'CMP-2024-002 SLA deadline is approaching',
       type: 'escalation',
@@ -50,7 +50,7 @@ export default function NotificationsPanel() {
       borderColor: 'border-red-500/20',
     },
     {
-      id: 4,
+      id: '4',
       title: 'Officer Remarks',
       message: 'Officer has added remarks to CMP-2024-001',
       type: 'remarks',
@@ -102,9 +102,7 @@ export default function NotificationsPanel() {
         ))}
       </div>
 
-      <button className="w-full text-center text-sm text-primary hover:text-secondary transition-colors font-medium py-2">
-        View All Notifications
-      </button>
+
     </section>
   )
 }

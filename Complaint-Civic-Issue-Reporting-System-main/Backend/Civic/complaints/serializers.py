@@ -5,6 +5,7 @@ class ComplaintSerializer(serializers.ModelSerializer):
     image_video = serializers.FileField(required=False, allow_null=True)
     category_name = serializers.CharField(source='Category.name', read_only=True)
     category_code = serializers.CharField(source='Category.code', read_only=True)
+    officer_name = serializers.CharField(source='officer_id.name', read_only=True, allow_null=True)
     
     class Meta:
         model = Complaint
@@ -14,6 +15,11 @@ class ComplaintSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         if 'image_video' in validated_data and not validated_data['image_video']:
             validated_data.pop('image_video')
+        
+        # Automatically associate the complaint with the authenticated user
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            validated_data['user'] = request.user
         
         complaint = Complaint.objects.create(**validated_data)
         return complaint

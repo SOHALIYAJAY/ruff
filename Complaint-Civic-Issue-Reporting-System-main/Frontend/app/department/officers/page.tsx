@@ -1,49 +1,146 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronRight, LayoutDashboard, Users } from "lucide-react"
-import OfficersKpiCards from "@/components/department/officers-kpi-cards"
-import OfficersTable from "@/components/department/officers-table"
-import type { Officer } from "@/components/department/officers-table"
-import OfficerProfileModal from "@/components/department/officer-profile-modal"
-import AssignComplaintToOfficerModal from "@/components/department/assign-complaint-modal"
-// import OfficerPerformancePanel from "@/components/department/officer-performance-panel"
+import { UserPlus, BarChart3, Search } from "lucide-react"
+import OfficersKpiCards from "@/components/admin/officers/officers-kpi-cards"
+import OfficersTable from "@/components/admin/officers/officers-table"
+import OfficerProfileModal from "@/components/admin/officers/officer-profile-modal"
+import OfficersAnalytics from "@/components/department/officers-analytics"
+import EditOfficerModal from "@/components/department/edit-officer-modal"
+import AddOfficerModal from "@/components/department/add-officer-modal"
 
-export default function OfficersPage() {
+export default function DepartmentOfficersPage() {
   const [profileOfficerId, setProfileOfficerId] = useState<string | null>(null)
-  const [assignOfficer, setAssignOfficer] = useState<Officer | null>(null)
+  const [showAddOfficer, setShowAddOfficer] = useState(false)
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [editingOfficer, setEditingOfficer] = useState<any>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+
+  const handleDeleteOfficer = async (officerId: string) => {
+    console.log('Attempting to delete officer with ID:', officerId)
+    
+    if (!confirm('Are you sure you want to delete this officer?')) {
+      return
+    }
+
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+      const token = localStorage.getItem('access_token')
+      
+      const url = `${API_BASE_URL}/api/officerdelete/${officerId}/`
+      console.log('Delete URL:', url)
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      console.log('Delete response status:', response.status)
+      console.log('Delete response ok:', response.ok)
+
+      if (response.ok) {
+        // Refresh the table
+        setRefreshKey(prev => prev + 1)
+        alert('Officer deleted successfully')
+      } else {
+        const errorData = await response.json()
+        console.log('Delete error response:', errorData)
+        alert(errorData.message || 'Failed to delete officer')
+      }
+    } catch (error) {
+      console.error('Error deleting officer:', error)
+      alert('Failed to delete officer. Please try again.')
+    }
+  }
+
+  const handleEditOfficer = (officer: any) => {
+    setEditingOfficer(officer)
+    setShowEditModal(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false)
+    setEditingOfficer(null)
+  }
+
+  const handleEditSuccess = () => {
+    setRefreshKey(prev => prev + 1)
+    handleCloseEditModal()
+  }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-slate-500">
-        <LayoutDashboard className="w-4 h-4" />
-        <span>Dashboard</span>
-        <ChevronRight className="w-3.5 h-3.5" />
-        <span className="text-[#1e40af] font-medium flex items-center gap-1.5">
-          <Users className="w-4 h-4" />
-          Officers
-        </span>
-      </div>
+    <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
 
-      {/* Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Department Officers</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage officer assignments and performance</p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-blue-900">Officers</h1>
+            <p className="text-blue-700 mt-1 text-sm">View and manage officers in your department</p>
+          </div>
+          <button
+            onClick={() => setShowAddOfficer(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary/90 transition-colors text-sm font-medium"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Officer
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards */}
       <OfficersKpiCards />
 
-      {/* Table */}
-      <div>
-        <OfficersTable
-          onViewProfile={(officerId) => setProfileOfficerId(officerId)}
-          onAssignComplaint={(o) => setAssignOfficer(o)}
-        />
+      {/* Filters & Actions */}
+      <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search officers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={() => setShowAnalytics(!showAnalytics)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
+              showAnalytics
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            Analytics
+          </button>
+        </div>
       </div>
 
-      {/* Modals */}
+      {/* Analytics */}
+      {showAnalytics && (
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <h2 className="text-lg font-bold text-slate-900 mb-4">Officer Performance Analytics</h2>
+          <OfficersAnalytics />
+        </div>
+      )}
+
+      {/* Officers Table */}
+      <OfficersTable
+        key={refreshKey}
+        onViewProfile={(officerId) => setProfileOfficerId(officerId)}
+        onAssignComplaint={() => {}}
+        onEditOfficer={handleEditOfficer}
+        onDeleteOfficer={handleDeleteOfficer}
+      />
+
+      {/* Profile Modal */}
       {profileOfficerId && (
         <OfficerProfileModal
           officerId={profileOfficerId}
@@ -52,13 +149,23 @@ export default function OfficersPage() {
         />
       )}
 
-      {assignOfficer && (
-        <AssignComplaintToOfficerModal
-          officer={assignOfficer}
-          open={!!assignOfficer}
-          onClose={() => setAssignOfficer(null)}
-        />
-      )}
+      {/* Add Officer Modal */}
+      <AddOfficerModal
+        open={showAddOfficer}
+        onClose={() => setShowAddOfficer(false)}
+        onSuccess={() => {
+          setShowAddOfficer(false)
+          setRefreshKey(prev => prev + 1)
+        }}
+      />
+
+      {/* Edit Officer Modal */}
+      <EditOfficerModal
+        officer={editingOfficer}
+        open={showEditModal}
+        onClose={handleCloseEditModal}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   )
 }

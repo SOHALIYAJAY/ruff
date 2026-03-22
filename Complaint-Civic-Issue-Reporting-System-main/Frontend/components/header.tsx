@@ -1,102 +1,228 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Menu, X } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Menu, X, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import GoogleProvider from './GoogleProvider'
-import GoogleLoginBtn from './GoogleLoginBtn'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const pathname = usePathname()
 
-  const navItems = [
-    { label: 'Home', href: '/' },
-    { label: 'About Us', href: '/about' },
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Admin', href: '/admin' },
-    { label: 'Department', href: '/department' },
-    { label: 'Contact', href: '/contact' },
-    { label: 'My Complaints', href: '/my-complaints' },
-  ]
+  useEffect(() => {
+    const token = localStorage.getItem('access_token')
+    const userData = localStorage.getItem('user')
+    
+    if (token && userData) {
+      setIsLoggedIn(true)
+      setUser(JSON.parse(userData))
+    } else {
+      setIsLoggedIn(false)
+      setUser(null)
+    }
+
+    // Listen for storage changes
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('access_token')
+      const newUserData = localStorage.getItem('user')
+      
+      if (newToken && newUserData) {
+        setIsLoggedIn(true)
+        setUser(JSON.parse(newUserData))
+      } else {
+        setIsLoggedIn(false)
+        setUser(null)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const getNavItems = () => {
+    if (!isLoggedIn || !user) {
+      // Not logged in - show basic navigation
+      return [
+        { label: 'Home', href: '/' },
+        { label: 'About', href: '/about' },
+        { label: 'Contact', href: '/contact' },
+      ]
+    }
+
+    const rawRole = user.User_Role || user.role || 'Civic-User'
+    const userRole = (typeof rawRole === 'string' && rawRole.toLowerCase().includes('officer')) ? 'Officer' : rawRole
+
+    switch (userRole) {
+      case 'Civic-User':
+        return [
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'My Complaints', href: '/my-complaints' },
+          { label: 'Raise Complaint', href: '/raise-complaint' },
+        ]
+      case 'Department-User':
+        return [
+          { label: 'Dashboard', href: '/department' },
+          { label: 'Assigned Complaints', href: '/department/complaints' },
+          { label: 'Officers', href: '/department/officers' },
+          { label: 'Users', href: '/department/users' },
+        ]
+      case 'Officer':
+        // Show simplified navigation for Officers: Home, About, Officer Dashboard, Contact
+        return [
+          { label: 'Home', href: '/' },
+          { label: 'About', href: '/about' },
+          { label: 'Officer Dashboard', href: '/officer' },
+          { label: 'Contact', href: '/contact' },
+        ]
+      case 'Admin-User':
+        return [
+          { label: 'Dashboard', href: '/admin' },
+          { label: 'Complaints', href: '/admin/complaints' },
+          { label: 'Users', href: '/admin/users' },
+          { label: 'Categories', href: '/admin/categories' },
+        ]
+      default:
+        return []
+    }
+  }
+
+  const navItems = getNavItems()
+
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname.startsWith(href)
 
   return (
-    <header className="bg-white border-b border-border shadow-sm">
+    <header className="bg-white border-b border-border shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-24">
-          {/* Logo and Portal Name */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center text-white font-bold text-lg">
+        <div className="flex items-center justify-between h-16">
+
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center text-white text-base">
               🏛️
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-primary">Gujarat CivicTrack</h1>
-              <p className="text-xs text-muted-foreground">Transparent Governance</p>
+            <div className="leading-tight">
+              <p className="text-base font-bold text-primary leading-none">Gujarat CivicTrack</p>
+              <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Transparent Governance</p>
             </div>
-          </div>
+          </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8 md:ml-8 lg:ml-12">
+          {/* Desktop Nav — centered */}
+          <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="text-sm font-medium text-foreground hover:text-primary transition-colors duration-200"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  isActive(item.href)
+                    ? 'text-primary bg-primary/8 font-semibold'
+                    : 'text-foreground/70 hover:text-primary hover:bg-muted'
+                }`}
               >
                 {item.label}
               </Link>
             ))}
           </nav>
 
-          {/* Desktop CTA Buttons */}
-          <div className="hidden md:flex items-center gap-3">
-            <GoogleProvider>
-              <GoogleLoginBtn />
-            </GoogleProvider>
-            <Link href="/raise-complaint">
-              <Button className="bg-accent hover:bg-yellow-500 text-accent-foreground">
-                Raise Complaint
-              </Button>
-            </Link>
+          {/* Desktop CTA */}
+          <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
+            {!isLoggedIn ? (
+              <>
+                <Link href="/login">
+                  <Button variant="outline" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button size="sm" className="bg-primary hover:bg-primary/90">
+                    Sign Up
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/profile" className="flex items-center justify-center w-10 h-10 bg-primary rounded-full hover:bg-primary/90 transition-colors">
+                  <User className="w-5 h-5 text-white" />
+                </Link>
+              </>
+            )}
+            
+            {/* Show Raise Complaint button only for Civic Users */}
+            {isLoggedIn && user && (user.User_Role === 'Civic-User' || user.role === 'Civic-User') && (
+              <Link href="/raise-complaint">
+                <Button size="sm" className="bg-accent hover:bg-yellow-500 text-accent-foreground font-semibold">
+                  Raise Complaint
+                </Button>
+              </Link>
+            )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile toggle */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 hover:bg-muted rounded-lg"
+            className="lg:hidden p-2 hover:bg-muted rounded-lg transition-colors"
             aria-label="Toggle menu"
           >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
+      </div>
 
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden pb-4 border-t border-border animate-slide-in-up">
-            <nav className="flex flex-col gap-2 pt-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-              <div className="flex gap-2 px-4 pt-4">
-                <GoogleProvider>
-                  <GoogleLoginBtn />
-                </GoogleProvider>
-                <Link href="/raise-complaint" className="flex-1">
-                  <Button className="w-full bg-accent hover:bg-yellow-500 text-accent-foreground">
+      {/* Mobile Menu */}
+      {isMenuOpen && (
+        <div className="lg:hidden border-t border-border bg-white">
+          <nav className="flex flex-col px-4 py-3 gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setIsMenuOpen(false)}
+                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive(item.href)
+                    ? 'text-primary bg-primary/8 font-semibold'
+                    : 'text-foreground/70 hover:text-primary hover:bg-muted'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <div className="flex items-center gap-2 pt-3 border-t border-border mt-2">
+              {!isLoggedIn ? (
+                <>
+                  <Link href="/login" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/signup" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                    <Button size="sm" className="w-full bg-primary hover:bg-primary/90">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/profile" className="flex items-center justify-center w-10 h-10 bg-primary rounded-full hover:bg-primary/90 transition-colors">
+                    <User className="w-5 h-5 text-white" />
+                  </Link>
+                </>
+              )}
+              
+              {/* Show Raise Complaint button only for Civic Users */}
+              {isLoggedIn && user && (user.User_Role === 'Civic-User' || user.role === 'Civic-User') && (
+                <Link href="/raise-complaint" className="flex-1" onClick={() => setIsMenuOpen(false)}>
+                  <Button size="sm" className="w-full bg-accent hover:bg-yellow-500 text-accent-foreground font-semibold">
                     Raise Complaint
                   </Button>
                 </Link>
-              </div>
-            </nav>
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

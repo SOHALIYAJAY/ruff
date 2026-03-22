@@ -1,19 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { ChevronRight, Home } from "lucide-react"
 import Link from "next/link"
 import AssignedComplaintsStats from "@/components/department/assigned-complaints-stats"
 import AssignedComplaintsTable from "@/components/department/assigned-complaints-table"
 import type { Complaint } from "@/components/department/assigned-complaints-table"
 import AssignOfficerModal from "@/components/department/assign-officer-modal"
-import ViewDetailsModal from "@/components/department/view-details-modal"
 import AssignedAnalyticsSidebar from "@/components/department/assigned-analytics-sidebar"
 
 export default function AssignedComplaintsPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false)
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
+  const tableRef = useRef<{ refreshComplaints: () => void }>(null)
 
   const handleAssign = (complaint: Complaint) => {
     setSelectedComplaint(complaint)
@@ -21,8 +20,15 @@ export default function AssignedComplaintsPage() {
   }
 
   const handleViewDetails = (complaint: Complaint) => {
-    setSelectedComplaint(complaint)
-    setDetailsModalOpen(true)
+    console.log('Viewing details for complaint:', complaint.id)
+    // Navigation is handled by ViewDetailsButton component
+  }
+
+  const handleAssignmentComplete = () => {
+    // Refresh the table data after assignment
+    if (tableRef.current) {
+      tableRef.current.refreshComplaints()
+    }
   }
 
   return (
@@ -48,19 +54,21 @@ export default function AssignedComplaintsPage() {
 
       {/* Main Content: Table Only */}
       <div>
-        <AssignedComplaintsTable onAssign={handleAssign} onViewDetails={handleViewDetails} initialView="category" />
+        <AssignedComplaintsTable 
+          ref={tableRef}
+          onAssign={handleAssign} 
+          onViewDetails={handleViewDetails} 
+          initialView="category"
+          onAssignmentComplete={handleAssignmentComplete}
+        />
       </div>
 
       {/* Modals */}
       <AssignOfficerModal
         open={assignModalOpen}
         onClose={() => setAssignModalOpen(false)}
-        complaint={selectedComplaint ? { id: selectedComplaint.id, title: selectedComplaint.title, officer: selectedComplaint.officer } : null}
-      />
-      <ViewDetailsModal
-        open={detailsModalOpen}
-        onClose={() => setDetailsModalOpen(false)}
-        complaint={selectedComplaint}
+        complaint={selectedComplaint ? { id: selectedComplaint.id.toString(), title: selectedComplaint.title, officer: selectedComplaint.officer_id?.toString() || '' } : null}
+        onAssignmentComplete={handleAssignmentComplete}
       />
     </div>
   )

@@ -4,10 +4,11 @@ import { TrendingUp, TrendingDown, Users, FileText, Target, Activity, RefreshCw 
 
 interface KPIData {
   total_comp: number
-    Pending_comp: number
-    inprogress_comp: number
-    resolved_comp: number
-    sla_compliance: number
+  Pending_comp: number
+  inprogress_comp: number
+  resolved_comp: number
+  rejected_comp?: number
+  sla_compliance: number
 }
 
 interface ComplaintsKPIProps {
@@ -55,7 +56,7 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
       icon: <Users className="w-5 h-5 text-green-600" />,
       // subtitle:  `${resolvedComplaints} resolved`
     },
-     {
+    {
       title: 'In-progress Complaint',
       value: kpi.inprogress_comp?.toString() || '0',
       badge: 'Available',
@@ -79,26 +80,33 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
     // },
   ]
 
-  // Performance indicators
+  // Performance indicators calculated from actual data
+  const total = kpi.total_comp || 0
+  const safeDivide = (num: number) => (total > 0 ? (num / total) * 100 : 0)
+
+  const responseRate = safeDivide(kpi.resolved_comp + kpi.inprogress_comp)
+  const resolutionRate = safeDivide(kpi.resolved_comp)
+  const pendingRate = safeDivide(kpi.Pending_comp)
+
   const performanceIndicators = [
     {
       label: 'Response Rate',
-      value: '94%',
-      color: 'bg-green-500',
-      status: 'Excellent'
+      value: `${responseRate.toFixed(1)}%`,
+      color: responseRate > 80 ? 'bg-green-500' : 'bg-orange-500',
+      status: responseRate > 80 ? 'Excellent' : 'Needs Improvement',
     },
     {
-      label: 'Resolution Time',
-      value: '2.4 days',
-      color: 'bg-blue-500',
-      status: 'Good'
+      label: 'Resolution Rate',
+      value: `${resolutionRate.toFixed(1)}%`,
+      color: resolutionRate > 70 ? 'bg-blue-500' : 'bg-orange-500',
+      status: resolutionRate > 70 ? 'Good' : 'Needs Attention',
     },
     {
-      label: 'Customer Satisfaction',
-      value: '4.2/5',
-      color: 'bg-purple-500',
-      status: 'Very Good'
-    }
+      label: 'Pending Rate',
+      value: `${pendingRate.toFixed(1)}%`,
+      color: pendingRate < 30 ? 'bg-green-500' : 'bg-orange-500',
+      status: pendingRate < 30 ? 'Under Control' : 'High',
+    },
   ]
 
   return (
@@ -109,16 +117,6 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
           <h2 className="text-xl font-semibold text-slate-900">Performance Overview</h2>
           <p className="text-sm text-slate-600 mt-1">Real-time metrics from your database</p>
         </div>
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        )}
       </div>
 
       {/* Loading State */}
@@ -153,8 +151,8 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
             <span className="text-xs text-green-500 ml-auto">Last updated: Just now</span>
           </div>
 
-          {/* Main KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Main KPI Cards - always 4 in a single row on large screens */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {kpiCards.map((card, idx) => (
               <div
                 key={idx}
@@ -178,8 +176,7 @@ export default function ComplaintsKPI({ kpi, loading, error, onRefresh }: Compla
               </div>
             ))}
           </div>
-
-<br />  </div>
+        </div>
       )}
       
       {/* Error State */}

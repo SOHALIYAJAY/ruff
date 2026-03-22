@@ -71,6 +71,9 @@ function ChartCard({
 }
 
 export default function DeptAnalytics() {
+  const maxComplaints = monthlyData.length > 0 ? Math.max(...monthlyData.map(d => Number(d.complaints || 0))) : 0
+  const chartYAxisMax = Math.max(Math.ceil(maxComplaints * 1.2), 5)
+  const adaptiveBarSize = monthlyData.length > 8 ? 18 : 22
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Status Pie */}
@@ -123,8 +126,8 @@ export default function DeptAnalytics() {
 
       {/* Monthly trend */}
       <ChartCard title="Monthly Complaint Trend">
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={monthlyData}>
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={monthlyData} barCategoryGap="20%" margin={{ bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis
               dataKey="month"
@@ -136,6 +139,8 @@ export default function DeptAnalytics() {
               tick={{ fontSize: 11, fill: "#64748b" }}
               axisLine={{ stroke: "#e2e8f0" }}
               tickLine={false}
+              domain={[0, chartYAxisMax]}
+              allowDecimals={false}
             />
             <Tooltip
               contentStyle={{
@@ -145,30 +150,16 @@ export default function DeptAnalytics() {
                 fontSize: "12px",
               }}
             />
-            <Line
-              type="monotone"
-              dataKey="complaints"
-              stroke="#1e40af"
-              strokeWidth={2}
-              dot={{ fill: "#1e40af", r: 4 }}
-              name="Received"
-            />
-            <Line
-              type="monotone"
-              dataKey="resolved"
-              stroke="#16a34a"
-              strokeWidth={2}
-              dot={{ fill: "#16a34a", r: 4 }}
-              name="Resolved"
-            />
+            <Bar dataKey="complaints" fill="#1e40af" barSize={adaptiveBarSize} radius={[6, 6, 0, 0]} name="Received" />
+            <Bar dataKey="resolved" fill="#16a34a" barSize={adaptiveBarSize} radius={[6, 6, 0, 0]} name="Resolved" />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-          </LineChart>
+          </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
       {/* Officer performance bar */}
       <ChartCard title="Officer Performance Comparison">
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={300}>
           <BarChart data={officerData} barSize={16}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
             <XAxis

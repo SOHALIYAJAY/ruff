@@ -39,6 +39,7 @@ class DistrictDetailView(APIView):
             "Surendranagar":    {"area": "10,423 km²", "population": "1,756,268", "hq": "Surendranagar", "villages": None},
             "Tapi":             {"area": "3,139 km²", "population": "807,022", "hq": "Vyara", "villages": None},
             "Valsad":           {"area": "3,008 km²", "population": "1,705,678", "hq": "Valsad", "villages": None},
+            "Vadodara":         {"area": "4,549 km²", "population": "6,081,322", "hq": "Vadodara", "villages": None},
             "Vav-Tharad":       {"area": "6,257 km²", "population": "1,380,870", "hq": "Tharad", "villages": None}
         }
 

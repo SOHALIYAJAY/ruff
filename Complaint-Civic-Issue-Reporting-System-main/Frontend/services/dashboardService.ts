@@ -69,8 +69,20 @@ export const getDashboardKPIs = async (): Promise<DashboardKPI[]> => {
     ]
     
     return kpis
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching dashboard KPIs:', error)
+
+    // On auth or network error, return an empty KPI list instead of hard-coded demo data
+    if (error.response?.status === 401) {
+      console.warn('Unauthorized while fetching dashboard KPIs, returning empty KPI list')
+      return []
+    }
+
+    if (error.code === 'ECONNABORTED' || error.message?.includes('Network Error')) {
+      console.warn('Network error while fetching dashboard KPIs, returning empty KPI list')
+      return []
+    }
+
     throw error
   }
 }
@@ -121,6 +133,16 @@ export const getDistrictData = async () => {
     return response.data
   } catch (error) {
     console.error('Error fetching district data:', error)
+    throw error
+  }
+}
+
+export const getUserMonthlyRegistrations = async () => {
+  try {
+    const response = await api.get('/api/user-registrations/monthly/')
+    return response.data
+  } catch (error) {
+    console.error('Error fetching user monthly registrations:', error)
     throw error
   }
 }

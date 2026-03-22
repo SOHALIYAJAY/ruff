@@ -16,11 +16,30 @@ export default function LoginPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const router = useRouter()
 
+  const getRedirectPath = (user: any) => {
+    const userRole = user.User_Role || user.role || 'Civic-User'
+    
+    switch (userRole) {
+      case 'Department-User':
+        return '/department'
+      case 'Admin-User':
+        return '/admin'
+      case 'Officer':
+        return '/officer'
+      case 'Civic-User':
+      default:
+        return '/user-details' // First go to user details, then dashboard
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem('access_token')
-    if (token) {
-      setIsLoggedIn(true)
-      router.push('/dashboard')
+    const userData = localStorage.getItem('user')
+    
+    if (token && userData) {
+      const user = JSON.parse(userData)
+      const redirectPath = getRedirectPath(user)
+      router.push(redirectPath)
     }
   }, [])
 
@@ -43,8 +62,12 @@ export default function LoginPage() {
       const data = await response.json()
       if (data.success) {
         localStorage.setItem('access_token', data.access_token)
+        localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
-        window.location.href = '/dashboard'
+        
+        // Redirect based on user role
+        const redirectPath = getRedirectPath(data.user)
+        window.location.href = redirectPath
       } else {
         setError(data.message || 'Invalid credentials')
       }

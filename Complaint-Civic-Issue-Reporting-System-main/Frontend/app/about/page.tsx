@@ -28,16 +28,6 @@ export default function AboutPage() {
       {/* Why This Platform */}
       <WhyPlatform />
       
-      {/* How It Works */}
-      <HowItWorks />
-      
-      {/* Features Highlight */}
-      <FeaturesHighlight />
-      
-      {/* Team & Technology */}
-      <TeamTech />
-
-      {/* CTA Section */}
       <section className="py-16 px-4 bg-primary text-white">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Make a Difference?</h2>

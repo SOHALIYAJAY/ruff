@@ -2,7 +2,11 @@ from django.contrib import admin
 from .models import Department, Officer
 from .models import Department
 class AdminDept(admin.ModelAdmin):
-    list_display=['name','category','contact_email','head_officer','created_at']
+    def category_label(self, obj):
+        return obj.get_category_display()
+    category_label.short_description = 'Category Label'
+
+    list_display=['name','category_label','category','contact_email','head_officer','created_at']
 admin.site.register(Department,AdminDept)
 
 

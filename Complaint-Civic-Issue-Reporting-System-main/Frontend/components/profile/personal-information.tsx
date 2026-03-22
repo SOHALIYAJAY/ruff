@@ -1,24 +1,97 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Edit2, Save, X } from 'lucide-react'
+import { Edit2, Save, X, Loader2 } from 'lucide-react'
+
+interface UserData {
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  User_Role: string
+  mobile_number?: string
+  address?: string
+  district?: string
+  taluka?: string
+  ward_number?: string
+  date_joined: string
+}
+
+const GUJARAT_DISTRICTS = [
+  'Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar',
+  'Jamnagar', 'Junagadh', 'Gandhinagar', 'Kutch', 'Surendranagar',
+  'Bharuch', 'Patan', 'Amreli', 'Botad', 'Gir Somnath',
+  'Devbhoomi Dwarka', 'Morbi', 'Mahisagar', 'Aravalli', 'Tapi',
+  'Dahod', 'Chhota Udaipur', 'Kheda', 'Anand', 'Valsad',
+  'Narmada', 'Sabarkantha', 'Banaskantha', 'Panchmahal', 'Navsari',
+  'Porbandar', 'Dang', 'Vav-Tharad'
+]
 
 export default function PersonalInformation() {
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [userData, setUserData] = useState<UserData | null>(null)
   const [formData, setFormData] = useState({
-    fullName: 'Rajesh Kumar',
-    email: 'rajesh.kumar@example.com',
-    mobile: '+91 98765 43210',
-    address: '123 MG Road, Ahmedabad',
-    district: 'Ahmedabad',
-    taluka: 'Ahmedabad',
-    wardNumber: '45',
+    first_name: '',
+    last_name: '',
+    email: '',
+    mobile_number: '',
+    address: '',
+    district: '',
+    taluka: '',
+    ward_number: '',
   })
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true)
+        const token = localStorage.getItem('access_token')
+        if (!token) {
+          return
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/userdetails/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          setUserData(result.data)
+          setFormData({
+            first_name: result.data.first_name || '',
+            last_name: result.data.last_name || '',
+            email: result.data.email || '',
+            mobile_number: result.data.mobile_number || '',
+            address: result.data.address || '',
+            district: result.data.district || '',
+            taluka: result.data.taluka || '',
+            ward_number: result.data.ward_number || '',
+          })
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUserData()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -28,13 +101,73 @@ export default function PersonalInformation() {
     setFormData({ ...formData, [name]: value })
   }
 
-  const handleSave = () => {
-    console.log('Saved:', formData)
-    setIsEditing(false)
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/update-userdetails/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // Update local user data
+        if (userData) {
+          setUserData({ ...userData, ...formData })
+        }
+        setIsEditing(false)
+        alert('Personal information updated successfully!')
+      } else {
+        throw new Error(result.error || 'Failed to update user information')
+      }
+    } catch (error) {
+      console.error('Error saving user data:', error)
+      alert('Failed to update personal information. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCancel = () => {
+    // Reset form to original data
+    if (userData) {
+      setFormData({
+        first_name: userData.first_name || '',
+        last_name: userData.last_name || '',
+        email: userData.email || '',
+        mobile_number: userData.mobile_number || '',
+        address: userData.address || '',
+        district: userData.district || '',
+        taluka: userData.taluka || '',
+        ward_number: userData.ward_number || '',
+      })
+    }
     setIsEditing(false)
+  }
+
+  if (loading) {
+    return (
+      <Card className="bg-white border border-slate-200 shadow-md p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
+          <span className="text-gray-600">Loading personal information...</span>
+        </div>
+      </Card>
+    )
   }
 
   return (
@@ -53,15 +186,30 @@ export default function PersonalInformation() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Full Name */}
+        {/* First Name */}
         <div className="space-y-2">
-          <Label htmlFor="fullName" className="text-slate-700 font-semibold">
-            Full Name
+          <Label htmlFor="first_name" className="text-slate-700 font-semibold">
+            First Name
           </Label>
           <Input
-            id="fullName"
-            name="fullName"
-            value={formData.fullName}
+            id="first_name"
+            name="first_name"
+            value={formData.first_name}
+            onChange={handleChange}
+            disabled={!isEditing}
+            className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
+          />
+        </div>
+
+        {/* Last Name */}
+        <div className="space-y-2">
+          <Label htmlFor="last_name" className="text-slate-700 font-semibold">
+            Last Name
+          </Label>
+          <Input
+            id="last_name"
+            name="last_name"
+            value={formData.last_name}
             onChange={handleChange}
             disabled={!isEditing}
             className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
@@ -79,20 +227,20 @@ export default function PersonalInformation() {
             type="email"
             value={formData.email}
             onChange={handleChange}
-            disabled={!isEditing}
+            disabled={true} // Email is read-only
             className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
           />
         </div>
 
         {/* Mobile Number */}
         <div className="space-y-2">
-          <Label htmlFor="mobile" className="text-slate-700 font-semibold">
+          <Label htmlFor="mobile_number" className="text-slate-700 font-semibold">
             Mobile Number
           </Label>
           <Input
-            id="mobile"
-            name="mobile"
-            value={formData.mobile}
+            id="mobile_number"
+            name="mobile_number"
+            value={formData.mobile_number}
             onChange={handleChange}
             disabled={!isEditing}
             className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
@@ -100,7 +248,7 @@ export default function PersonalInformation() {
         </div>
 
         {/* Address */}
-        <div className="space-y-2">
+        <div className="space-y-2 md:col-span-2">
           <Label htmlFor="address" className="text-slate-700 font-semibold">
             Address
           </Label>
@@ -121,14 +269,14 @@ export default function PersonalInformation() {
           </Label>
           <Select value={formData.district} onValueChange={(value) => handleSelectChange('district', value)} disabled={!isEditing}>
             <SelectTrigger id="district" className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100">
-              <SelectValue />
+              <SelectValue placeholder="Select district" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Ahmedabad">Ahmedabad</SelectItem>
-              <SelectItem value="Surat">Surat</SelectItem>
-              <SelectItem value="Vadodara">Vadodara</SelectItem>
-              <SelectItem value="Rajkot">Rajkot</SelectItem>
-              <SelectItem value="Bhavnagar">Bhavnagar</SelectItem>
+              {GUJARAT_DISTRICTS.map((district) => (
+                <SelectItem key={district} value={district}>
+                  {district}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -138,28 +286,25 @@ export default function PersonalInformation() {
           <Label htmlFor="taluka" className="text-slate-700 font-semibold">
             Taluka
           </Label>
-          <Select value={formData.taluka} onValueChange={(value) => handleSelectChange('taluka', value)} disabled={!isEditing}>
-            <SelectTrigger id="taluka" className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Ahmedabad">Ahmedabad</SelectItem>
-              <SelectItem value="Bavla">Bavla</SelectItem>
-              <SelectItem value="Dholka">Dholka</SelectItem>
-              <SelectItem value="Sanand">Sanand</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input
+            id="taluka"
+            name="taluka"
+            value={formData.taluka}
+            onChange={handleChange}
+            disabled={!isEditing}
+            className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
+          />
         </div>
 
         {/* Ward Number */}
         <div className="space-y-2">
-          <Label htmlFor="wardNumber" className="text-slate-700 font-semibold">
+          <Label htmlFor="ward_number" className="text-slate-700 font-semibold">
             Ward Number
           </Label>
           <Input
-            id="wardNumber"
-            name="wardNumber"
-            value={formData.wardNumber}
+            id="ward_number"
+            name="ward_number"
+            value={formData.ward_number}
             onChange={handleChange}
             disabled={!isEditing}
             className="border-slate-300 focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100"
@@ -174,6 +319,7 @@ export default function PersonalInformation() {
             onClick={handleCancel}
             variant="outline"
             className="border-slate-300 hover:bg-slate-100 gap-2"
+            disabled={saving}
           >
             <X className="w-4 h-4" />
             Cancel
@@ -181,9 +327,19 @@ export default function PersonalInformation() {
           <Button
             onClick={handleSave}
             className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            disabled={saving}
           >
-            <Save className="w-4 h-4" />
-            Save Changes
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Changes
+              </>
+            )}
           </Button>
         </div>
       )}

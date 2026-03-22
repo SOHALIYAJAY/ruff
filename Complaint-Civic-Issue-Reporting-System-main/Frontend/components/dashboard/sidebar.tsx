@@ -1,52 +1,140 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Plus,
   Eye,
-  Bell,
   User,
   LogOut,
   ChevronRight,
   Menu,
   X,
+  FileText,
+  Edit,
 } from 'lucide-react'
 
 export default function DashboardSidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-  const menuItems = [
-    {
-      label: 'Dashboard',
-      icon: <LayoutDashboard className="w-5 h-5" />,
-      href: '/dashboard',
-    },
-    {
-      label: 'Raise Complaint',
-      icon: <Plus className="w-5 h-5" />,
-      href: '/raise-complaint',
-    },
-    {
-      label: 'My Complaints',
-      icon: <Eye className="w-5 h-5" />,
-      href: '/my-complaints',
-    },
-    // {
-    //   label: 'Notifications',
-    //   icon: <Bell className="w-5 h-5" />,
-    //   href: '/notifications',
-    //   badge: 2,
-    // },
-    {
-      label: 'Profile',
-      icon: <User className="w-5 h-5" />,
-      href: '/profile',
-    },
-  ]
+  useEffect(() => {
+    const userData = localStorage.getItem('user')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    }
+  }, [])
+
+  const getMenuItems = () => {
+    if (!user) {
+      return []
+    }
+
+    const rawRole = user.User_Role || user.role || 'Civic-User'
+    const userRole = (typeof rawRole === 'string' && rawRole.toLowerCase().includes('officer')) ? 'Officer' : rawRole
+
+    switch (userRole) {
+      case 'Civic-User':
+        return [
+          {
+            label: 'Dashboard',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/dashboard',
+          },
+          {
+            label: 'Raise Complaint',
+            icon: <Plus className="w-5 h-5" />,
+            href: '/raise-complaint',
+          },
+          {
+            label: 'My Complaints',
+            icon: <Eye className="w-5 h-5" />,
+            href: '/my-complaints',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/profile',
+          },
+        ]
+      
+      case 'Department-User':
+        return [
+          {
+            label: 'Dashboard',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/department',
+          },
+          {
+            label: 'Officer Portal',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/officer',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/department/profile',
+          },
+        ]
+      
+      case 'Officer':
+        return [
+          {
+            label: 'Dashboard',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/officer',
+          },
+          {
+            label: 'All Complaints',
+            icon: <FileText className="w-5 h-5" />,
+            href: '/officer/complaints',
+          },
+          {
+            label: 'Status Change',
+            icon: <Edit className="w-5 h-5" />,
+            href: '/officer/update-status',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/officer/profile',
+          },
+        ]
+      
+      case 'Admin-User':
+        return [
+          {
+            label: 'Admin',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/admin',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/admin/profile',
+          },
+        ]
+      
+      default:
+        return [
+          {
+            label: 'Dashboard',
+            icon: <LayoutDashboard className="w-5 h-5" />,
+            href: '/dashboard',
+          },
+          {
+            label: 'Profile',
+            icon: <User className="w-5 h-5" />,
+            href: '/profile',
+          },
+        ]
+    }
+  }
+
+  const menuItems = getMenuItems()
 
   const isActive = (href: string) => pathname === href
 
@@ -70,7 +158,7 @@ export default function DashboardSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-full lg:w-64 overflow-y-auto ${
+        className={`fixed left-0 top-0 h-screen w-56 bg-primary text-primary-foreground z-40 transition-transform duration-300 lg:static lg:translate-x-0 lg:h-auto lg:self-stretch lg:w-56 overflow-y-auto ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -97,11 +185,6 @@ export default function DashboardSidebar() {
                     {item.icon}
                     <span className="font-medium">{item.label}</span>
                   </div>
-                  {/* {item.badge && (
-                    <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-semibold">
-                      {item.badge}
-                    </span>
-                  )} */}
                   {isActive(item.href) && <ChevronRight className="w-4 h-4" />}
                 </div>
               </Link>

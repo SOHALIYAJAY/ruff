@@ -9,20 +9,23 @@ import ComplaintsSummary from '@/components/my-complaints/summary'
 import ComplaintsFilter from '@/components/my-complaints/filter'
 import ComplaintsList from '@/components/my-complaints/list'
 import ComplaintDetailsModal from '@/components/my-complaints/details-modal'
+import RequireAuth from '@/components/auth/RequireAuth'
 
 interface Complaint {
   id: string
   title: string
-  Category: string
+  category_name: string
+  Description: string
   location_address: string
+  location_District: string
+  location_taluk: string
   current_time: string
   status: 'Pending' | 'in-progress' | 'resolved'
   priority_level: 'Low' | 'Medium' | 'High'
-  Description: string
   image_video?: string
-  slaCompliance: number
+  slaCompliance?: number
   officerRemarks?: string
-  timeline: Array<{ step: string; date: string; status: 'completed' | 'pending' }>
+  timeline?: Array<{ step: string; date: string; status: 'completed' | 'pending' }>
   estimatedResolution?: string
 }
 
@@ -49,14 +52,44 @@ export default function MyComplaintsPage() {
   useEffect(() => {
     const fetchComplaints = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/getcomplaint/`, {
-          headers: { Accept: 'application/json' },
+        const token = localStorage.getItem('access_token')
+        const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
+        
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+        
+        if (isTokenValid) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+        
+        // Build query params from active filters/search
+        const params = new URLSearchParams()
+        if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus)
+        if (categoryFilter && categoryFilter !== 'all') params.append('category', categoryFilter)
+        if (priorityFilter && priorityFilter !== 'all') params.append('priority', priorityFilter)
+        if (searchTerm && searchTerm.trim() !== '') params.append('search', searchTerm.trim())
+
+        const url = `${API_BASE}/api/getcomplaint/${params.toString() ? `?${params.toString()}` : ''}`
+
+        const res = await fetch(url, {
+          headers,
           mode: 'cors',
         })
   
         if (!res.ok) {
           const text = await res.text()
           console.error('API Error Response:', text?.substring?.(0, 500) ?? text)
+          
+          if (res.status === 401) {
+            console.warn('Authentication failed, clearing invalid token')
+            localStorage.removeItem('access_token')
+            // Redirect to login or show empty state
+            setComplaints([])
+            return
+          }
+          
           throw new Error(`API returned ${res.status}`)
         }
   
@@ -76,70 +109,74 @@ export default function MyComplaintsPage() {
         setComplaints([])
       }
     }
-  
+
     fetchComplaints()
-  }, [API_BASE])
+  // Re-run fetch when any filter/search changes so server-side filtering can be applied
+  }, [API_BASE, filterStatus, categoryFilter, priorityFilter, searchTerm])
   return (
-    <main className="min-h-screen bg-background">
-      <UtilityBar />
-      <Header />
+    <RequireAuth>
+      <main className="min-h-screen bg-background">
+        <UtilityBar />
+        <Header />
 
-      {/* Breadcrumb */}
-      <section className="bg-muted/30 border-b border-border">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <a href="/" className="hover:text-primary transition-colors">Home</a>
-            <span>/</span>
-            <span className="text-foreground font-medium">My Complaints</span>
+        {/* Breadcrumb */}
+        <section className="bg-muted/30 border-b border-border">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <a href="/" className="hover:text-primary transition-colors">Home</a>
+              <span>/</span>
+              <span className="text-foreground font-medium">My Complaints</span>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Header Section */}
-      <MyComplaintsHeader />
+        {/* Header Section */}
+        <MyComplaintsHeader />
 
-      {/* Summary Cards */}
-      <section className="py-8 border-b border-border bg-muted/20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <ComplaintsSummary />
-        </div>
-      </section>
+        {/* Summary Cards */}
+        <section className="py-8 border-b border-border bg-muted/20">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <ComplaintsSummary />
+          </div>
+        </section>
 
-      {/* Filter Section */}
-      <ComplaintsFilter
-        filterStatus={filterStatus}
-        setFilterStatus={setFilterStatus}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter}
-        priorityFilter={priorityFilter}
-        setPriorityFilter={setPriorityFilter}
-      />
-
-      {/* Complaints List */}
-      <section className="py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <ComplaintsList
-            filterStatus={filterStatus}
-            searchTerm={searchTerm}
-            categoryFilter={categoryFilter}
-            priorityFilter={priorityFilter}
-            onSelectComplaint={setSelectedComplaint}
-            complaints={complaints}
-          />
-        </div>
-      </section>
-
-      {/* Complaint Details Modal */}
-      {selectedComplaint && (
-        <ComplaintDetailsModal
-          complaint={selectedComplaint}
-          onClose={() => setSelectedComplaint(null)}
+        {/* Filter Section */}
+        <ComplaintsFilter
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          categoryFilter={categoryFilter}
+          setCategoryFilter={setCategoryFilter}
+          priorityFilter={priorityFilter}
+          setPriorityFilter={setPriorityFilter}
         />
-      )}
 
-      <Footer />
-    </main>
+        {/* Complaints List */}
+        <section className="py-8">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <ComplaintsList
+              filterStatus={filterStatus}
+              searchTerm={searchTerm}
+              categoryFilter={categoryFilter}
+              priorityFilter={priorityFilter}
+              onSelectComplaint={setSelectedComplaint}
+              complaints={complaints}
+            />
+          </div>
+        </section>
+
+        {/* Complaint Details Modal */}
+        {selectedComplaint && (
+          <ComplaintDetailsModal
+            complaint={selectedComplaint}
+            open={!!selectedComplaint}
+            onClose={() => setSelectedComplaint(null)}
+          />
+        )}
+
+        <Footer />
+      </main>
+    </RequireAuth>
   )
 }

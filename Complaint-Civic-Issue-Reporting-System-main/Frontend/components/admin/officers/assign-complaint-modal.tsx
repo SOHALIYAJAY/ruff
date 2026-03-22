@@ -79,7 +79,7 @@ export default function AssignComplaintToOfficerModal({ officer, open, onClose }
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Officer workload warning */}
-          {(officer.activeComplaints / officer.maxCapacity) >= 0.8 && (
+          {officer.activeComplaints && officer.maxCapacity && (officer.activeComplaints / officer.maxCapacity) >= 0.8 && (
             <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
               <p className="text-xs text-[#dc2626] font-medium">
                 Warning: This officer is currently overloaded ({officer.activeComplaints}/{officer.maxCapacity} complaints).

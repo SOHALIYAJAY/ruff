@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import api from '@/lib/axios'
+import api, { apiGet } from '@/lib/api'
 import {
   FileText,
   Clock,
@@ -68,17 +68,24 @@ export default function AssignedComplaintsStats() {
 
   const fetchStats = async () => {
     try {
-      const response = await api.get('/api/getcomplaint/')
-      const complaints = response.data
+      const data = await apiGet('/api/department/dashboard/')
       
+      // Extract stats from the response
       setStats({
-        total: complaints.length,
-        pending: complaints.filter((c: any) => c.status === 'Pending').length,
-        inProgress: complaints.filter((c: any) => c.status === 'in-progress').length,
-        resolved: complaints.filter((c: any) => c.status === 'resolved').length
+        total: data.stats?.total || 0,
+        pending: data.stats?.pending || 0,
+        inProgress: data.stats?.inProgress || 0,
+        resolved: data.stats?.resolved || 0
       })
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      console.error('Error fetching department stats:', error)
+      // Set fallback data on error
+      setStats({
+        total: 0,
+        pending: 0,
+        inProgress: 0,
+        resolved: 0
+      })
     } finally {
       setLoading(false)
     }

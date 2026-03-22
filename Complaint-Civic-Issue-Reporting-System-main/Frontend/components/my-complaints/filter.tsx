@@ -34,8 +34,11 @@ export default function ComplaintsFilter({
 
   useEffect(() => {
     let mounted = true
-    fetch(`${API_BASE}/api/categories/`)
-      .then((r) => r.json())
+    fetch(`${API_BASE}/api/categorieslist/`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Failed to fetch categories')
+        return r.json()
+      })
       .then((data) => {
         if (!mounted) return
         setCategories(Array.isArray(data) ? data : [])
@@ -93,7 +96,7 @@ export default function ComplaintsFilter({
                 <option value="all">All Categories</option>
                 {categories.length > 0
                   ? categories.map((cat: any) => (
-                      <option key={cat.id} value={cat.code || cat.name}>
+                      <option key={cat.id} value={cat.name}>
                         {cat.name + (cat.code ? ` (${cat.code})` : '')}
                       </option>
                     ))

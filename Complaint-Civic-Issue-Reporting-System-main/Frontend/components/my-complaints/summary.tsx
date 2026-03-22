@@ -58,31 +58,41 @@ export default function ComplaintsSummary() {
       setLoading(true)
       setError(null)
       
-      console.log(`Fetching stats from: ${API_BASE}/complaintsinfo/`)
+      const token = localStorage.getItem('access_token')
+      const isTokenValid = Boolean(token && token !== 'undefined' && token !== 'null')
       
-      // Test connectivity first
-      try {
-        const testRes = await Promise.race([
-          fetch(`${API_BASE}/api/getcomplaint/`, { method: 'HEAD', mode: 'no-cors' }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timeout')), 5000))
-        ])
-        console.log('Backend connectivity test passed')
-      } catch (testErr) {
-        console.warn('Backend connectivity test failed:', testErr)
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+      
+      if (isTokenValid) {
+        headers['Authorization'] = `Bearer ${token}`
       }
       
       const res = await fetch(`${API_BASE}/complaintsinfo/`, { 
         mode: 'cors', 
-        headers: { 
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
+        headers,
         signal: AbortSignal.timeout(10000)
       })
       
       if (!res.ok) {
         const text = await res.text()
         console.error('API Error Response:', text?.substring?.(0, 500) ?? text)
+        
+        if (res.status === 401) {
+          console.warn('Authentication failed for stats, clearing token')
+          localStorage.removeItem('access_token')
+          // Set default values for unauthenticated users
+          setStats([
+            { label: "Total Complaints", value: 0, icon: <AlertCircle size={24} />, color: "text-blue-500", bgColor: "bg-blue-100" },
+            { label: "Resolved", value: 0, icon: <CheckCircle size={24} />, color: "text-green-500", bgColor: "bg-green-100" },
+            { label: "Pending", value: 0, icon: <Clock size={24} />, color: "text-yellow-500", bgColor: "bg-yellow-100" },
+            { label: "In-Progress", value: 0, icon: <Zap size={24} />, color: "text-red-500", bgColor: "bg-red-100" },
+          ])
+          return
+        }
+        
         throw new Error(`API returned ${res.status}: ${res.statusText}`)
       }
       

@@ -55,15 +55,15 @@ export default function OfficerProfileModal({ officerId, open, onClose }: Office
   const fetchOfficerData = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/officer/${officerId}/`)
-      setOfficer(response.data.officer)
+      const { data: response } = await api.get(`/api/officer/${officerId}/`)
+      setOfficer(response.officer)
       setStats({
-        total_comp: response.data.total_comp,
-        resolved_comp: response.data.resolved_comp,
-        pending_comp: response.data.pending_comp,
-        in_progress_comp: response.data.in_progress_comp
+        total_comp: response.total_comp,
+        resolved_comp: response.resolved_comp,
+        pending_comp: response.pending_comp,
+        in_progress_comp: response.in_progress_comp
       })
-      setComplaints(response.data.assigned_complaints || [])
+      setComplaints(response.assigned_complaints || [])
     } catch (error) {
       console.error('Error fetching officer data:', error)
     } finally {

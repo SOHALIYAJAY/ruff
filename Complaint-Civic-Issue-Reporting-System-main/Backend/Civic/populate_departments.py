@@ -87,6 +87,10 @@ departments_data = [
     }
 ]
 
+# Ensure `name` uses the category code for each department (e.g. 'ROADS')
+for d in departments_data:
+    d['name'] = d['category']
+
 for dept_data in departments_data:
     dept, created = Department.objects.get_or_create(
         category=dept_data['category'],

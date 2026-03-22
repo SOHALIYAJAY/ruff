@@ -5,7 +5,7 @@ import ContactHero from '@/components/contact/contact-hero'
 import ContactInfo from '@/components/contact/contact-info'
 import ContactForm from '@/components/contact/contact-form'
 import FAQSection from '@/components/contact/faq-section'
-import SocialMedia from '@/components/contact/social-media'
+// import SocialMedia from '@/components/contact/social-media'
 
 export const metadata: Metadata = {
   title: 'Contact Us | Gujarat CivicTrack',
@@ -31,7 +31,7 @@ export default function ContactPage() {
       <FAQSection />
       
       {/* Social Media */}
-      <SocialMedia />
+      {/* <SocialMedia /> */}
 
       {/* Map Section */}
       <section className="py-20 px-4 bg-background">

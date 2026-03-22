@@ -19,7 +19,7 @@ export default function Page() {
       <StatisticsSection />
       <ActivityFeed />
       <TimelineSection />
-      <DepartmentsSection />
+      {/* <DepartmentsSection /> */}
       <VisionSection />
       {/* <ProjectShowcase /> */}
       <Footer />
