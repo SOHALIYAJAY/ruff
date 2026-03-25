@@ -16,6 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from complaints.views import createcomplaint
 from complaints.district_views import DistrictDetailView
 from Civic import views
@@ -27,6 +30,7 @@ from departments.admin_urls import urlpatterns as department_admin_urls
 
 
 urlpatterns = [
+    path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico')),
     path('admin/', admin.site.urls),
     path('api/raisecomplaint/',createcomplaint,name='raisecomplaint'),
     path('api/getcomplaint/',getcomplaint.as_view(),name='getcomplaint'),
@@ -66,6 +70,8 @@ urlpatterns = [
     path('api/deptinfo/',views.deptinfo.as_view(),name='deptinfo'),
     path('api/officerinfo/',OfficerDetail.as_view(),name='officerinfo'),
     path('api/assign-officer/',complaintofficer.as_view(), name='assign-officer'),
+    # Officer Dashboard URLs (must be before the catch-all officer_id route)
+    path('api/officer/', include('officer.urls')),
     path('api/officer/<str:officer_id>/',officerprofile.as_view(),name='officer-profile'),
     path('api/officer-kpi/',officerkpi.as_view(),name='officer-kpi'),
     # path('api/officercomp-info/',officerinfo.as_view(),name='officerinfo')
@@ -111,6 +117,4 @@ urlpatterns = [
     path('api/department/upload-image/', views.DepartmentUploadImage.as_view(), name='department-upload-image'),
     path('api/UserDistrictWise/',views.UserDistrictWise.as_view(),name='UserDistrictWise'),
     path('api/user-registrations/monthly/', UserMonthlyRegistrations.as_view(), name='user-monthly-registrations'),
-    # Officer Dashboard URLs
-    path('api/officer/', include('officer.urls')),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

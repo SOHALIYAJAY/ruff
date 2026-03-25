@@ -23,36 +23,114 @@ import json
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def department_statistics(request):
-    """
-    Get department-wise complaint and officer statistics for admin dashboard
-    """
     try:
+        from Categories.models import Category as ComplaintCategory
+        from django.db.models.functions import ExtractYear
+
+        year_param = request.query_params.get('year')
+        year = int(year_param) if year_param and year_param.isdigit() else None
+
         departments_data = []
-        
         for dept in Department.objects.all():
-            # Count complaints for this department
-            complaint_count = Complaint.objects.filter(Category__department=dept.category).count()
-            
-            # Count officers in this department
-            officer_count = dept.officers.count()
-            
+            # Match complaints via Category.department == dept.category (the code e.g. 'ROADS')
+            base_qs = Complaint.objects.filter(Category__department=dept.category)
+            if year:
+                base_qs = base_qs.filter(current_time__year=year)
+
+            complaint_count  = base_qs.count()
+            pending_count    = base_qs.filter(status='Pending').count()
+            inprogress_count = base_qs.filter(status='In Process').count()
+            resolved_count   = base_qs.filter(status='Completed').count()
+
+            # Officers: count distinct Officer records that have complaints in this dept's categories
+            officer_count = base_qs.exclude(officer_id=None).values('officer_id').distinct().count()
+
+            resolution_rate = round(resolved_count / complaint_count * 100, 1) if complaint_count else 0
+
             departments_data.append({
                 'name': dept.name,
+                'category': dept.category,
                 'complaint_count': complaint_count,
-                'officer_count': officer_count
+                'pending_count': pending_count,
+                'inprogress_count': inprogress_count,
+                'resolved_count': resolved_count,
+                'officer_count': officer_count,
+                'resolution_rate': resolution_rate,
             })
-        
+
+        # Category-wise complaint distribution
+        category_distribution = []
+        for cat in ComplaintCategory.objects.all():
+            qs = Complaint.objects.filter(Category=cat)
+            if year:
+                qs = qs.filter(current_time__year=year)
+            count = qs.count()
+            if count > 0:
+                category_distribution.append({'name': cat.name, 'value': count})
+
+        import calendar as cal
+        monthly_trend = []
+        for i in range(5, -1, -1):
+            total_months = timezone.now().year * 12 + timezone.now().month - 1 - i
+            y = total_months // 12
+            m = (total_months % 12) + 1
+            monthly_trend.append({
+                'month': f"{cal.month_abbr[m]} {y}",
+                'complaints': Complaint.objects.filter(current_time__year=y, current_time__month=m).count(),
+                'resolved':   Complaint.objects.filter(current_time__year=y, current_time__month=m, status='Completed').count(),
+                'pending':    Complaint.objects.filter(current_time__year=y, current_time__month=m, status='Pending').count(),
+            })
+
+        years_qs = Complaint.objects.annotate(yr=ExtractYear('current_time')).values_list('yr', flat=True).distinct().order_by('yr')
+        yearly_trend = []
+        for y in years_qs:
+            if y:
+                yearly_trend.append({
+                    'year': str(y),
+                    'complaints': Complaint.objects.filter(current_time__year=y).count(),
+                    'resolved':   Complaint.objects.filter(current_time__year=y, status='Completed').count(),
+                    'pending':    Complaint.objects.filter(current_time__year=y, status='Pending').count(),
+                    'inprogress': Complaint.objects.filter(current_time__year=y, status='In Process').count(),
+                })
+
         return Response({
-            'department_statistics': departments_data
+            'department_statistics': departments_data,
+            'category_distribution': category_distribution,
+            'monthly_trend': monthly_trend,
+            'yearly_trend': yearly_trend,
         })
-        
     except Exception as e:
+        import traceback; traceback.print_exc()
         return Response({'error': str(e)}, status=500)
 
 
 class OfficerDetail(ListAPIView):
     queryset = Officer.objects.all()
     serializer_class = OfficerSerializer
+
+    def list(self, request, *args, **kwargs):
+        officers = Officer.objects.all()
+        result = []
+        for o in officers:
+            # Find which department category this officer has complaints in
+            from complaints.models import Complaint
+            from departments.models import Department
+            dept_name = ''
+            cat = Complaint.objects.filter(
+                officer_id=o.officer_id, Category__isnull=False
+            ).values_list('Category__department', flat=True).first()
+            if cat:
+                dept = Department.objects.filter(category=cat).first()
+                dept_name = dept.name if dept else cat
+            result.append({
+                'officer_id': o.officer_id,
+                'name': o.name,
+                'email': o.email,
+                'phone': o.phone,
+                'is_available': o.is_available,
+                'department': dept_name,
+            })
+        return Response(result)
 
 
 @api_view(['GET'])
@@ -269,46 +347,23 @@ def department_officers(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def department_complaints(request):
-    """
-    Get complaints for the current user's department
-    """
     try:
         user = request.user
-        print(f"Department complaints requested by user: {user.username} (ID: {user.id})")
-        
-        # Get department based on user's role and department
+
         department = None
-        if hasattr(user, 'departments') and user.departments.exists():
-            department = user.departments.first()
-            print(f"Found department via departments relation: {department.name}")
-        elif hasattr(user, 'headed_department') and user.headed_department.exists():
+        if hasattr(user, 'headed_department') and user.headed_department.exists():
             department = user.headed_department.first()
-            print(f"Found department via headed_department relation: {department.name}")
-        
+        elif hasattr(user, 'departments') and user.departments.exists():
+            department = user.departments.first()
+
         if not department:
-            # If user has no department assigned, fall back to returning all complaints
-            # This helps department users without an explicit department mapping to still
-            # view complaints in the UI (category-wise). Log a warning but do not 404.
-            print(f"No department found for user {user.username} - falling back to all complaints")
             complaints = Complaint.objects.all().order_by('-current_time')
-            print(f"Found {complaints.count()} total complaints (fallback)")
         else:
-            # Get complaints that should be handled by this department
-            # Try matching by Category.code or Category.department to be robust
-            print(f"Filtering complaints for department code: {department.category}")
             complaints = Complaint.objects.filter(
-                Q(Category__code__iexact=department.category) |
-                Q(Category__department__iexact=department.category) |
-                Q(Category__department__iexact='')
+                Category__code=department.category
             ).order_by('-current_time')
-        
-        if department:
-            print(f"Found {complaints.count()} complaints for department {department.name}")
-        else:
-            print(f"Returning {complaints.count()} complaints as fallback for user {user.username}")
-        
+
         complaints_data = []
-        
         for complaint in complaints:
             complaints_data.append({
                 'id': complaint.id,
@@ -319,19 +374,15 @@ def department_complaints(request):
                 'status': complaint.status,
                 'submittedDate': complaint.current_time.strftime('%Y-%m-%d') if complaint.current_time else 'Unknown',
                 'assignedOfficer': complaint.officer_id.name if complaint.officer_id else 'Unassigned',
-                'estimatedResolution': 'Not set',  # This field doesn't exist in the model
                 'citizenName': complaint.user.get_full_name() if complaint.user else 'Unknown',
                 'citizenEmail': complaint.user.email if complaint.user else 'Unknown',
                 'citizenPhone': getattr(complaint.user, 'mobile_number', 'Not Available'),
                 'location': complaint.location_address or 'Not specified',
-                'satisfactionRating': None  # This field doesn't exist in the model
             })
-        
-        print(f"Returning {len(complaints_data)} complaints")
+
         return Response(complaints_data)
-        
+
     except Exception as e:
-        print(f"Error in department_complaints: {str(e)}")
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -499,10 +550,103 @@ def update_department_profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def department_dashboard(request):
-    """
-    Department Dashboard API
-    Returns comprehensive dashboard data for department users
-    """
+    try:
+        user = request.user
+
+        # ── Resolve this user's department ──
+        dept = None
+        if hasattr(user, 'headed_department') and user.headed_department.exists():
+            dept = user.headed_department.first()
+        elif hasattr(user, 'departments') and user.departments.exists():
+            dept = user.departments.first()
+
+        # ── Filter complaints to this department's category; fallback = all ──
+        if dept:
+            qs = Complaint.objects.filter(Category__code=dept.category)
+            dept_name = dept.name
+            dept_category = dept.get_category_display()
+            dept_email = dept.contact_email
+            dept_phone = dept.contact_phone
+            head_name = dept.head_officer.get_full_name() if dept.head_officer else 'Not Assigned'
+            dept_officers = dept.officers.count()
+        else:
+            qs = Complaint.objects.all()
+            dept_name = 'All Departments'
+            dept_category = ''
+            dept_email = ''
+            dept_phone = ''
+            head_name = 'N/A'
+            dept_officers = Officer.objects.count()
+
+        total      = qs.count()
+        pending    = qs.filter(status='Pending').count()
+        inprogress = qs.filter(status='in-progress').count()
+        resolved   = qs.filter(status='resolved').count()
+
+        all_officers      = Officer.objects.all()
+        active_officers   = all_officers.filter(is_available=True).count()
+        inactive_officers = all_officers.filter(is_available=False).count()
+
+        sla_compliance   = round(resolved / total * 100, 1) if total else 0
+        officer_workload = round(total / max(active_officers, 1), 1)
+
+        current_year = timezone.now().year
+        monthly_counts = {}
+        for m in range(1, 13):
+            monthly_counts[str(m)] = qs.filter(
+                current_time__year=current_year, current_time__month=m
+            ).count()
+
+        recent_data = []
+        for comp in qs.order_by('-current_time')[:6]:
+            recent_data.append({
+                'id': comp.id,
+                'title': comp.title or 'Untitled',
+                'description': (comp.Description or '')[:100],
+                'status': comp.status,
+                'priority': comp.priority_level,
+                'current_time': comp.current_time.strftime('%Y-%m-%d') if comp.current_time else '',
+                'location_address': comp.location_address or '',
+                'Category': comp.Category.name if comp.Category else '',
+            })
+
+        recent_activity = []
+        for comp in qs.order_by('-current_time')[:5]:
+            recent_activity.append({
+                'id': f'comp_{comp.id}', 'type': 'complaint',
+                'description': f'Complaint #{comp.id}: {comp.title or "Untitled"}',
+                'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
+                'officer': comp.officer_id.name if comp.officer_id else 'Unassigned',
+            })
+        for comp in qs.filter(status='resolved').order_by('-current_time')[:3]:
+            recent_activity.append({
+                'id': f'res_{comp.id}', 'type': 'resolution',
+                'description': f'Complaint #{comp.id} resolved',
+                'time': comp.current_time.strftime('%Y-%m-%d %H:%M') if comp.current_time else '',
+                'officer': comp.officer_id.name if comp.officer_id else 'Unknown',
+            })
+        recent_activity = sorted(recent_activity, key=lambda x: x['time'], reverse=True)[:8]
+
+        return Response({
+            'department': {
+                'name': dept_name, 'category': dept_category,
+                'email': dept_email, 'phone': dept_phone,
+                'head': head_name, 'officer_count': dept_officers,
+            },
+            'stats': {'total': total, 'pending': pending, 'inProgress': inprogress, 'resolved': resolved},
+            'performance': {
+                'avgResolutionTime': 0, 'slaCompliance': sla_compliance,
+                'officerWorkload': officer_workload, 'citizenSatisfaction': 4.2,
+            },
+            'officers': {'total': all_officers.count(), 'active': active_officers, 'inactive': inactive_officers},
+            'monthlyCounts': monthly_counts,
+            'recentComplaints': recent_data,
+            'recentActivity': recent_activity,
+        })
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return Response({'error': str(e)}, status=500)
     try:
         # Get current user and their department
         user = request.user

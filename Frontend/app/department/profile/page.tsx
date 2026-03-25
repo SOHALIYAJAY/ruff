@@ -7,6 +7,7 @@ import {
   AlertTriangle, Activity, Target, Briefcase, Upload, Image as ImageIcon
 } from "lucide-react"
 import api from '@/lib/axios'
+import ChangePasswordModal from '@/components/profile/change-password-modal'
 
 // Types
 interface DepartmentInfo {
@@ -73,6 +74,7 @@ export default function DepartmentProfilePage() {
   const [departmentImage, setDepartmentImage] = useState<string | null>(null)
   const [performanceImage, setPerformanceImage] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   // Fetch user profile data
   const fetchProfile = useCallback(async () => {
@@ -258,6 +260,7 @@ export default function DepartmentProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {showPasswordModal && <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />}
       {/* Header Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -575,7 +578,7 @@ export default function DepartmentProfilePage() {
                     <button className="text-sm text-gray-600 hover:text-gray-700">Configure</button>
                   </div>
                 </div>
-                <button className="w-full px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary/90 transition-colors text-sm font-medium">
+                <button className="w-full px-4 py-2 bg-sidebar-primary text-white rounded-lg hover:bg-sidebar-primary/90 transition-colors text-sm font-medium" onClick={() => setShowPasswordModal(true)}>
                   Change Password
                 </button>
               </div>

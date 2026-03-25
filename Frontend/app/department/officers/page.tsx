@@ -77,11 +77,11 @@ export default function DepartmentOfficersPage() {
     <div className="p-6 space-y-6 bg-slate-50 min-h-screen">
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 shadow-sm p-6">
+      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-blue-900">Officers</h1>
-            <p className="text-blue-700 mt-1 text-sm">View and manage officers in your department</p>
+            <h1 className="text-3xl font-bold text-slate-800">Officers</h1>
+            <p className="text-slate-500 mt-1 text-sm">View and manage officers in your department</p>
           </div>
           <button
             onClick={() => setShowAddOfficer(true)}
@@ -106,14 +106,14 @@ export default function DepartmentOfficersPage() {
               placeholder="Search officers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1e3a5f]/30 focus:border-[#1e3a5f]"
             />
           </div>
           <button
             onClick={() => setShowAnalytics(!showAnalytics)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm font-medium border ${
               showAnalytics
-                ? "bg-blue-600 text-white border-blue-600"
+                ? "bg-[#1e3a5f] text-white border-[#1e3a5f]"
                 : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
             }`}
           >

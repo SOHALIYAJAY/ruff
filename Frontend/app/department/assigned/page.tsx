@@ -35,12 +35,12 @@ export default function AssignedComplaintsPage() {
     <div className="p-4 lg:p-6 space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link href="/department" className="flex items-center gap-1 text-slate-500 hover:text-[#1e40af] transition-colors">
+        <Link href="/department" className="flex items-center gap-1 text-slate-500 hover:text-[#1e3a5f] transition-colors">
           <Home className="w-3.5 h-3.5" />
           Dashboard
         </Link>
         <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-        <span className="text-[#1e40af] font-medium">Assigned Complaints</span>
+        <span className="text-[#1e3a5f] font-medium">Assigned Complaints</span>
       </div>
 
       {/* Page Title */}

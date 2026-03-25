@@ -314,16 +314,13 @@ export default function RaiseComplaintForm() {
       }
       // Do not show in-form banner or alert here; keep UX minimal and avoid duplicate messages
       setSubmitted(true)
-      // Show success message in the UI (include server-provided id if available)
-      const serverId = (data as any)?.id || (data as any)?.complaint_id || (data as any)?.pk
-      const msg = serverId ? `Complaint submitted successfully. ID: ${serverId}` : 'Complaint submitted successfully.'
-      setSuccessMessage(msg)
+      setSuccessMessage('Complaint submitted successfully.')
       // Auto-hide after 8 seconds
       setTimeout(() => setSuccessMessage(''), 8000)
       // Notify other open tabs (admin dashboard) that a new complaint was created
       try {
         const bc = new BroadcastChannel('complaints')
-        bc.postMessage({ type: 'new-complaint', complaintId: serverId })
+        bc.postMessage({ type: 'new-complaint' })
         bc.close()
       } catch (e) {
         // BroadcastChannel may not be available in older browsers; ignore errors

@@ -16,7 +16,12 @@ class deptSerializer(serializers.ModelSerializer):
         return None
     
     def get_officer_count(self, obj):
-        return obj.officers.count()
+        # Count distinct Officer records that have complaints in this department's category
+        from complaints.models import Complaint
+        return Complaint.objects.filter(
+            Category__department=obj.category,
+            officer_id__isnull=False
+        ).values('officer_id').distinct().count()
 
 class OfficerSerializer(serializers.ModelSerializer):
     class Meta:
