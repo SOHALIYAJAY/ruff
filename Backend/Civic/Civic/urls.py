@@ -27,6 +27,7 @@ from accounts.views import RegisterView, LoginView, LogoutView, GoogleLoginView,
 from contact_us.views import ContactUSview
 from departments.views import OfficerDetail, department_profile, department_officers, department_complaints, department_performance, update_department_profile, department_dashboard, departments_overview, department_statistics
 from departments.admin_urls import urlpatterns as department_admin_urls
+from rest_framework_simplejwt.views import TokenRefreshView
 
 
 urlpatterns = [
@@ -50,6 +51,7 @@ urlpatterns = [
     path('api/register/', RegisterView.as_view(),name='register'),
     path('api/test/', TestAPIView.as_view(), name='test-api'),
     path('api/login/', LoginView.as_view(),name='login'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('api/logout/', LogoutView.as_view(),name='logout'),
     path('api/google-login/',GoogleLoginView.as_view(),name='google-login'),
     path('api/userdetails/', UserDetail.as_view(),name='user-details'),
